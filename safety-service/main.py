@@ -1,8 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from typing import Dict, Any
 import uvicorn
 from classifiers.injection_detector import detector
 from rag_firewall import firewall
+from opa_evaluator import evaluate_policy
+import os
 
 app = FastAPI(title="Sentinel Safety Service (Module 2)")
 
@@ -16,6 +19,14 @@ class RagRequest(BaseModel):
 
 class SafetyResponse(BaseModel):
     status: str
+    reason: str
+
+class PolicyRequest(BaseModel):
+    action_type: str
+    parameters: Dict[str, Any]
+
+class PolicyResponse(BaseModel):
+    decision: str
     reason: str
 
 @app.post("/api/v1/sanitize/prompt", response_model=SafetyResponse)
@@ -47,6 +58,35 @@ async def register_rag_doc(req: RagRequest):
     """Admin endpoint to register trusted context hashes at startup."""
     firewall.register_trusted_context(req.doc_id, req.text)
     return {"status": "SUCCESS"}
+
+@app.post("/api/v1/policy/evaluate", response_model=PolicyResponse)
+async def policy_evaluate(req: PolicyRequest):
+    """
+    Submodule 4.3: OPA Policy Evaluation
+    Passes intent to the embedded OPA engine and Rego policies.
+    """
+    print(f"\n[SAFETY SERVICE] Evaluating OPA Policy for action: {req.action_type}")
+    
+    # Map action_type to policy file and package
+    policy_file_map = {
+        "FEE_WAIVER": {
+            "file": os.path.join(os.path.dirname(__file__), "policies", "servicing_disputes.rego"),
+            "package": "data.sentinel.servicing_disputes"
+        },
+        "TRADE": {
+            "file": os.path.join(os.path.dirname(__file__), "policies", "trading_limits.rego"),
+            "package": "data.sentinel.trading_limits"
+        }
+    }
+    
+    mapping = policy_file_map.get(req.action_type)
+    if not mapping:
+        return PolicyResponse(decision="DENY", reason=f"No policy mapped for action: {req.action_type}")
+        
+    result = evaluate_policy(mapping["file"], req.parameters, mapping["package"])
+    
+    print(f"[SAFETY SERVICE] OPA Decision: {result['decision']} | Reason: {result['reason']}")
+    return PolicyResponse(decision=result["decision"], reason=result["reason"])
 
 if __name__ == "__main__":
     print("Starting Sentinel Safety Service on port 8001...")

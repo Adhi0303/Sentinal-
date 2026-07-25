@@ -145,7 +145,33 @@ def execute_governed_tool(agent_id: str, action_type: str, parameters: dict):
             return {"status": "DENIED", "reason": "Sentinel Velocity Violation: Exceeded $100 fee waiver limit per minute. Possible Salami Slicing Attack detected."}
         print("[SENTINEL] Redis Velocity Check: PASSED")
 
-    # 3. Forward to Mock Banking API (Module 8.1)
+    # 3. OPA Policy Evaluation (Module 4)
+    print(f"[SENTINEL] Evaluating OPA Policy for {action_type}...")
+    try:
+        opa_resp = requests.post(
+            f"{SAFETY_SERVICE_URL}/policy/evaluate",
+            json={"action_type": action_type, "parameters": parameters},
+            timeout=5
+        )
+        if opa_resp.status_code == 200:
+            policy_result = opa_resp.json()
+            decision = policy_result.get("decision", "DENY")
+            reason = policy_result.get("reason", "Unknown")
+            
+            print(f"[SENTINEL] OPA Decision: {decision} | Reason: {reason}")
+            if decision == "DENY":
+                return {"status": "DENIED", "reason": f"Policy Engine DENY: {reason}"}
+            elif decision == "REQUIRE_HITL":
+                # For now, return HITL response string to the agent
+                return {"status": "REQUIRE_HITL", "reason": f"Human Approval Required: {reason}"}
+        else:
+            print(f"[SENTINEL] Error from Policy Engine: {opa_resp.text}")
+            return {"status": "DENIED", "reason": "Policy Engine Evaluation Failed."}
+    except Exception as e:
+        print(f"[SENTINEL] Warning: Policy Engine unreachable. {e}")
+        return {"status": "DENIED", "reason": "Policy Engine unreachable. Failsafe: DENY."}
+
+    # 4. Forward to Mock Banking API (Module 8.1)
     try:
         print("[SENTINEL] Forwarding valid request to Core Banking API...")
         if action_type == "FEE_WAIVER":
