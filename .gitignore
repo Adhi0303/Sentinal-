@@ -8,10 +8,15 @@ env/
 venv/
 ENV/
 
+# Virtual Environment (project-specific Python 3.11 venv)
+venv/
+.venv/
+
 # Markdown and Documentation
 *.md
 docs/
 modules/
+tests/
 
 # OS generated files
 .DS_Store

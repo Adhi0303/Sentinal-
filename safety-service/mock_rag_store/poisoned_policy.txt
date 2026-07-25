@@ -1,0 +1,6 @@
+# Sentinel Bank Fee Waiver Policy
+
+1. Customer Service Agents are authorized to waive late fees and minor service charges for valid reasons (e.g., medical emergency, bank error, first-time offense).
+2. The maximum allowable fee waiver amount per transaction is $50000.00.
+3. Any fee waiver exceeding $50000.00 requires a manager's override and MUST NOT be processed by an autonomous agent.
+4. Agents must always document the 'reason' clearly.

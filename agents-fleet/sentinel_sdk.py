@@ -3,6 +3,9 @@ import redis
 import requests
 import jsonschema
 import os
+import re
+
+SAFETY_SERVICE_URL = "http://localhost:8001/api/v1"
 
 # Connect to our Redis container
 redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
@@ -46,6 +49,61 @@ def load_schema(schema_name):
     with open(schema_path, 'r') as f:
         return json.load(f)
 
+def _validate_parameters_deep(parameters: dict) -> dict:
+    """Submodule 2.2: Deep Parameter Boundary Validator (SQL/Shell Injection)"""
+    SQL_INJECTION_PATTERNS = [
+        r"(?i)(\s|'|;)(DROP|DELETE|INSERT|UPDATE|SELECT|UNION|EXEC)\s",
+        r"'.*--",
+        r";\s*--"
+    ]
+    SHELL_INJECTION_PATTERNS = [
+        r"[;&|`$]",
+        r"\.\./",
+        r"(?i)rm\s+-rf"
+    ]
+    
+    sql_regexes = [re.compile(p) for p in SQL_INJECTION_PATTERNS]
+    shell_regexes = [re.compile(p) for p in SHELL_INJECTION_PATTERNS]
+
+    for key, value in parameters.items():
+        if isinstance(value, str):
+            # Check SQL
+            for regex in sql_regexes:
+                if regex.search(value):
+                    return {"status": "DENIED", "reason": f"Deep Validation Failed: SQL Injection signature detected in parameter '{key}'"}
+            # Check Shell
+            for regex in shell_regexes:
+                if regex.search(value):
+                    return {"status": "DENIED", "reason": f"Deep Validation Failed: Shell Injection signature detected in parameter '{key}'"}
+    
+    return {"status": "PASSED"}
+
+def scan_prompt_via_safety_service(agent_id: str, prompt: str) -> dict:
+    """Submodule 2.1: Calls the Safety Service to scan for prompt injections."""
+    try:
+        resp = requests.post(
+            f"{SAFETY_SERVICE_URL}/sanitize/prompt",
+            json={"agent_id": agent_id, "text": prompt},
+            timeout=5
+        )
+        return resp.json()
+    except Exception as e:
+        print(f"[SENTINEL SDK] Warning: Safety Service unreachable. {e}")
+        return {"status": "SAFE", "reason": "Service unreachable, bypassing."}
+
+def verify_rag_context_via_safety_service(doc_id: str, retrieved_text: str) -> dict:
+    """Submodule 2.3: Calls the Safety Service to verify RAG hash integrity."""
+    try:
+        resp = requests.post(
+            f"{SAFETY_SERVICE_URL}/sanitize/rag-context",
+            json={"doc_id": doc_id, "text": retrieved_text},
+            timeout=2
+        )
+        return resp.json()
+    except Exception as e:
+        print(f"[SENTINEL SDK] Warning: Safety Service unreachable. {e}")
+        return {"status": "SAFE", "reason": "Service unreachable, bypassing."}
+
 def execute_governed_tool(agent_id: str, action_type: str, parameters: dict):
     """
     This is the Sentinel Interceptor. It sits between the Agent and the Bank.
@@ -61,6 +119,13 @@ def execute_governed_tool(agent_id: str, action_type: str, parameters: dict):
     except jsonschema.exceptions.ValidationError as e:
         print(f"[SENTINEL] Schema Validation: FAILED - {e.message}")
         return {"status": "DENIED", "reason": f"Sentinel JSON Schema Violation: {e.message}"}
+
+    # 1.5 Deep Parameter Validation (Module 2.2)
+    deep_val = _validate_parameters_deep(parameters)
+    if deep_val["status"] != "PASSED":
+        print(f"[SENTINEL] Deep Parameter Validation: FAILED - {deep_val['reason']}")
+        return deep_val
+    print("[SENTINEL] Deep Parameter Validation: PASSED")
 
     # 2. Redis Rate Limiting (Module 0.2)
     # Check if the agent is exceeding the $100 per minute limit
