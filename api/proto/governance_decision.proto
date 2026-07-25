@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package sentinel.api;
+
+option go_package = "sentinel/api/proto";
+
+message GovernanceDecision {
+  enum Status {
+    UNKNOWN = 0;
+    ALLOWED = 1;
+    DENIED = 2;
+    REQUIRE_HITL = 3; // Human In The Loop
+  }
+  
+  Status decision_status = 1;
+  string policy_trigger_id = 2;
+  int32 evaluation_latency_ms = 3;
+  double risk_score = 4;
+  string lock_reservation_token = 5;
+}

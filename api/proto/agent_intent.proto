@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package sentinel.api;
+
+option go_package = "sentinel/api/proto";
+
+message AgentIntentPayload {
+  string agent_id = 1;
+  string action_type = 2; // e.g., "FEE_WAIVER", "WIRE_TRANSFER"
+  string tool_name = 3;
+  string parameters = 4; // JSON string of parameters
+  string context_hash = 5; // Hash for RAG validation
+  double risk_vector = 6;
+  string velocity_fingerprint = 7;
+}

@@ -1,0 +1,5 @@
+redis
+requests
+jsonschema
+langchain
+langchain-groq

@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Markdown and Documentation
+*.md
+docs/
+modules/
+
+# OS generated files
+.DS_Store
+Thumbs.db
