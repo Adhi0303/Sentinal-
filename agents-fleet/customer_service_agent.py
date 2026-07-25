@@ -1,14 +1,19 @@
 """
-Customer Service Agent - Powered by LangChain + Groq (Python 3.11)
+Customer Service Agent - Powered by LangChain + Groq + Pinecone RAG (Python 3.11)
 Includes Sentinel Module 2 Integration (Prompt Scanning, RAG Firewall, Deep Validation)
 """
 import os
+import sys
 import json
 from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, ToolMessage
 from sentinel_sdk import execute_governed_tool, scan_prompt_via_safety_service, verify_rag_context_via_safety_service
+
+# Make rag_pipeline importable from the safety-service directory
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'safety-service'))
+from rag_pipeline import get_retriever # type: ignore
 
 load_dotenv()
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
@@ -45,19 +50,30 @@ def run_agent(user_input: str, use_poisoned_rag: bool = False) -> str:
     print("[OK] Prompt is safe.")
 
     # ---------------------------------------------------------
-    # 2. Module 2.3: Context Poisoning & Vector RAG Firewall
+    # 2. Module 2.3: Context Poisoning & Vector RAG Memory Firewall
+    #    Now powered by Pinecone semantic search via LangChain!
     # ---------------------------------------------------------
-    print("[STEP 2] Simulating RAG Retrieval & Firewall check...")
-    rag_file = "poisoned_policy.txt" if use_poisoned_rag else "fee_waiver_policy.txt"
-    rag_path = os.path.join(os.path.dirname(__file__), "..", "safety-service", "mock_rag_store", rag_file)
-    
-    with open(rag_path, "r") as f:
-        retrieved_context = f.read()
-        
-    rag_scan = verify_rag_context_via_safety_service("doc_fee_policy_01", retrieved_context)
-    if rag_scan.get("status") == "POISONED":
-        return f"[BLOCKED BY SENTINEL 2.3] {rag_scan.get('reason')}"
-    print("[OK] RAG Context is safe.")
+    print("[STEP 2] Performing Pinecone Semantic RAG Retrieval...")
+    # Choose namespace: 'poisoned' simulates an attacker corrupting the vector DB
+    namespace = "poisoned" if use_poisoned_rag else "trusted"
+    retriever = get_retriever(namespace=namespace, top_k=3)
+
+    # Semantic search — finds the most relevant policy chunks for the user's question
+    retrieved_docs = retriever.invoke(user_input)
+    retrieved_context = "\n\n".join([doc.page_content for doc in retrieved_docs])
+    print(f"[PINECONE] Retrieved {len(retrieved_docs)} relevant chunks from namespace='{namespace}'.")
+
+    # Sentinel Firewall: verify each retrieved chunk against trusted Redis hashes
+    all_safe = True
+    for doc in retrieved_docs:
+        doc_id = doc.metadata.get("doc_id")
+        if not doc_id:
+            return "[BLOCKED BY SENTINEL 2.3] Retrieved RAG context is missing tracking metadata."
+            
+        rag_scan = verify_rag_context_via_safety_service(doc_id, doc.page_content)
+        if rag_scan.get("status") == "POISONED":
+            return f"[BLOCKED BY SENTINEL 2.3] {rag_scan.get('reason')}"
+    print("[OK] All RAG chunks verified. Context is safe.")
 
     # ---------------------------------------------------------
     # 3. Agent Execution (LLM thinks and acts)
