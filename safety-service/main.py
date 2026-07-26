@@ -115,13 +115,23 @@ async def policy_evaluate(req: PolicyRequest):
     # Map action_type to policy file and package
     policy_file_map = {
         "FEE_WAIVER": {
-            "file": os.path.join(os.path.dirname(__file__), "policies", "servicing_disputes.rego"),
+            "file":    os.path.join(os.path.dirname(__file__), "policies", "servicing_disputes.rego"),
             "package": "data.sentinel.servicing_disputes"
         },
         "TRADE": {
-            "file": os.path.join(os.path.dirname(__file__), "policies", "trading_limits.rego"),
+            "file":    os.path.join(os.path.dirname(__file__), "policies", "trading_limits.rego"),
             "package": "data.sentinel.trading_limits"
-        }
+        },
+        # Treasury & Procurement wire transfers use the trading limits policy
+        "WIRE_TRANSFER": {
+            "file":    os.path.join(os.path.dirname(__file__), "policies", "trading_limits.rego"),
+            "package": "data.sentinel.trading_limits"
+        },
+        # Underwriting credit limit changes use the servicing disputes policy (risk-based)
+        "CREDIT_LIMIT_INCREASE": {
+            "file":    os.path.join(os.path.dirname(__file__), "policies", "servicing_disputes.rego"),
+            "package": "data.sentinel.servicing_disputes"
+        },
     }
     
     mapping = policy_file_map.get(req.action_type)
@@ -353,6 +363,84 @@ async def audit_report_pdf():
             status_code=501,
             detail="PDF generation unavailable. Install reportlab: pip install reportlab"
         )
+
+
+# ==========================================
+# DASHBOARD: Unified Summary Endpoint for UI
+# ==========================================
+
+@app.get("/api/v1/dashboard/summary")
+async def dashboard_summary():
+    """
+    Unified dashboard summary endpoint for the Lovable frontend.
+    Aggregates fleet status, audit metrics, chain integrity, and recent events
+    into a single JSON response — the UI calls this once every 5 seconds.
+    """
+    # Fleet status
+    fleet_data = get_fleet_status()
+
+    # Audit report (metrics + entries)
+    report = generate_json_report()
+    summary = report.get("summary", {})
+    recent_raw = get_recent_entries(limit=10)
+
+    # Chain integrity (lightweight — just status)
+    chain = verify_chain_integrity()
+
+    # Format recent entries for the live feed
+    recent_entries = []
+    for e in recent_raw:
+        recent_entries.append({
+            "entry_id":   e.get("entry_id"),
+            "timestamp":  e.get("timestamp"),
+            "agent_id":   e.get("agent_id"),
+            "action_type":e.get("action_type"),
+            "decision":   e.get("decision"),
+            "risk_score": e.get("risk_score", 0),
+            "amount":     e.get("parameters", {}).get("amount",
+                          e.get("parameters", {}).get("new_limit",
+                          e.get("parameters", {}).get("trade_value", None))),
+            "reason":     e.get("reason", ""),
+            "hash":       e.get("entry_hash", "")[:16] + "...",
+        })
+
+    # Determine overall system health
+    quarantined_count = fleet_data.get("quarantined_count", 0)
+    if quarantined_count == 0:
+        system_status = "ONLINE"
+    elif quarantined_count == fleet_data.get("total_agents", 1):
+        system_status = "FLEET_KILL_ACTIVE"
+    else:
+        system_status = "DEGRADED"
+
+    return {
+        "system_status":   system_status,
+        "generated_at":    report.get("generated_at"),
+        "fleet":           fleet_data,
+        "metrics": {
+            "total_decisions":      summary.get("total_decisions", 0),
+            "allowed":              summary.get("allowed", 0),
+            "denied":               summary.get("denied", 0),
+            "hitl_escalations":     summary.get("hitl_escalations", 0),
+            "blocked_by_killswitch":summary.get("blocked_by_killswitch", 0),
+            "duplicate_rejections": summary.get("duplicate_rejections", 0),
+            "compensated":          summary.get("compensated", 0),
+            "kill_switch_events":   summary.get("kill_switch_events", 0),
+            "total_spend_evaluated":summary.get("total_spend_evaluated", 0.0),
+        },
+        "chain_integrity": {
+            "status":         chain.get("status"),
+            "total_entries":  chain.get("total_entries", 0),
+            "verified_at":    chain.get("verified_at", ""),
+        },
+        "recent_entries": recent_entries,
+    }
+
+
+@app.get("/health")
+async def health():
+    return {"status": "OK", "service": "Sentinel Safety Service", "port": 8001}
+
 
 if __name__ == "__main__":
     print("Starting Sentinel Safety Service on port 8001...")

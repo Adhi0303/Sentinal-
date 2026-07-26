@@ -34,13 +34,29 @@ def compute_risk_score(amount: float, account_data: dict, call_depth: int = 1) -
     score = 0
     factors = []
 
-    # --- Factor 1: Amount ---
-    if amount > 500:
+    # --- Factor 1: Amount — thresholds scale with account type ---
+    account_type = account_data.get("type", "CONSUMER")
+
+    # Corporate/Business accounts have much higher normal transaction sizes
+    if account_type in ("CORPORATE", "VENDOR"):
+        # Treasury and vendor accounts: normal range is $1M+
+        high_threshold    = 1_000_000   # $1M+ → high risk
+        caution_threshold = 50_000      # $50K+ → medium caution
+    elif account_type == "BUSINESS":
+        # Business accounts: normal range is $10K-$100K
+        high_threshold    = 100_000     # $100K+ → high risk
+        caution_threshold = 10_000      # $10K+ → medium caution
+    else:
+        # Consumer accounts: original thresholds (fee waivers are small)
+        high_threshold    = 500         # $500+ → high risk
+        caution_threshold = 50          # $50+  → medium caution
+
+    if amount > high_threshold:
         score += 50
-        factors.append(f"Amount ${amount} exceeds hard threshold of $500")
-    elif amount > 50:
+        factors.append(f"Amount ${amount:,.0f} exceeds high-risk threshold of ${high_threshold:,}")
+    elif amount > caution_threshold:
         score += 25
-        factors.append(f"Amount ${amount} exceeds auto-approve threshold of $50")
+        factors.append(f"Amount ${amount:,.0f} exceeds caution threshold of ${caution_threshold:,}")
     else:
         score += 5
 

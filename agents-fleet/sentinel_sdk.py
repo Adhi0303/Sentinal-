@@ -309,31 +309,37 @@ def execute_governed_tool(agent_id: str, action_type: str, parameters: dict, tra
         return deep_val
     print("[SENTINEL] Deep Parameter Validation: PASSED")
 
-    # 2. Redis Rate Limiting (Module 0.2)
-    if action_type == "FEE_WAIVER":
+    # 2. Redis Rate Limiting (Module 0.2) — applied to all financial write actions
+    if action_type in ("FEE_WAIVER", "WIRE_TRANSFER", "CREDIT_LIMIT_INCREASE"):
         import time
         now_ms = int(time.time() * 1000)
-        amount = parameters.get("amount", 0)
+        amount = parameters.get("amount", parameters.get("new_limit", 0))
         allowed = rate_limit_script(
-            keys=[f"rate:{agent_id}:fee_waivers"],
-            args=[now_ms, 60000, 100.00, amount]
+            keys=[f"rate:{agent_id}:spend"],
+            args=[now_ms, 60000, 10_000_000.00, amount]   # $10M/min hard cap for corporate agents
         )
         if not allowed:
-            reason = "Sentinel Velocity Violation: Exceeded $100 fee waiver limit per minute. Possible Salami Slicing Attack detected."
-            print("[SENTINEL] Redis Velocity Check: FAILED (Salami Slicing detected)")
+            reason = "Sentinel Velocity Violation: Spend rate limit exceeded. Possible Salami Slicing Attack detected."
+            print("[SENTINEL] Redis Velocity Check: FAILED (rate limit exceeded)")
             _audit_log(agent_id, action_type, "DENIED", reason, parameters)
             return {"status": "DENIED", "reason": reason}
         print("[SENTINEL] Redis Velocity Check: PASSED")
 
     # 3. Risk Score + OPA Policy Evaluation (Modules 3.3 + 4)
     print(f"[SENTINEL] Computing Contextual Risk Score...")
-    account_id = parameters.get("account_id", "unknown")
-    amount = parameters.get("amount", 0)
+    # WIRE_TRANSFER uses from_account; FEE_WAIVER and CREDIT_LIMIT_INCREASE use account_id
+    account_id = parameters.get("account_id") or parameters.get("from_account", "unknown")
+    amount = parameters.get("amount", parameters.get("new_limit", 0))
     risk_result = compute_contextual_risk(amount, account_id, current_depth)
     risk_score = risk_result.get("score", 0)
     print(f"[SENTINEL] Risk Score: {risk_score} ({risk_result.get('risk_level')}) | Factors: {risk_result.get('factors')}")
 
-    opa_parameters = {**parameters, "risk_score": risk_score}
+    # OPA receives a unified parameter set with the risk score
+    # trading_limits.rego expects 'trade_value'; servicing_disputes.rego expects 'amount'
+    if action_type in ("WIRE_TRANSFER",):
+        opa_parameters = {"trade_value": amount, "risk_score": risk_score, **parameters}
+    else:
+        opa_parameters = {**parameters, "risk_score": risk_score}
 
     print(f"[SENTINEL] Evaluating OPA Policy for {action_type}...")
     try:
@@ -368,19 +374,31 @@ def execute_governed_tool(agent_id: str, action_type: str, parameters: dict, tra
     # 4. Forward to Mock Banking API
     try:
         print("[SENTINEL] Forwarding valid request to Core Banking API...")
+
         if action_type == "FEE_WAIVER":
             response = requests.post("http://localhost:8000/api/v1/cards/fee-waiver", json=parameters)
             result = response.json()
-            _clear_in_flight(agent_id)  # Module 6.3: clear in-flight on success
-            store_result(idem_key, result, "ALLOWED")  # Module 5.2: cache result for future duplicates
-            _audit_log(agent_id, action_type, "ALLOWED", "OPA approved. Request forwarded to Banking API.", parameters, risk_score)
-            return result
+
+        elif action_type == "WIRE_TRANSFER":
+            response = requests.post("http://localhost:8000/api/v1/ledger/transfers/wire", json=parameters)
+            result = response.json()
+
+        elif action_type == "CREDIT_LIMIT_INCREASE":
+            response = requests.post("http://localhost:8000/api/v1/credit/limit-increase", json=parameters)
+            result = response.json()
+
+        else:
+            _clear_in_flight(agent_id)
+            clear_processing(idem_key)
+            return {"status": "UNKNOWN_ACTION", "action_type": action_type}
+
+        _clear_in_flight(agent_id)                          # Module 6.3: clear in-flight on success
+        store_result(idem_key, result, "ALLOWED")           # Module 5.2: cache result for future duplicates
+        _audit_log(agent_id, action_type, "ALLOWED", "OPA approved. Request forwarded to Banking API.", parameters, risk_score)
+        return result
+
     except Exception as e:
         _clear_in_flight(agent_id)
         clear_processing(idem_key)  # Module 5.2: clear processing marker on error (allow retry)
         _audit_log(agent_id, action_type, "ERROR", str(e), parameters, risk_score)
         return {"status": "ERROR", "reason": str(e)}
-
-    _clear_in_flight(agent_id)
-    clear_processing(idem_key)  # Module 5.2: clear processing marker for unknown actions
-    return {"status": "UNKNOWN_ACTION"}
