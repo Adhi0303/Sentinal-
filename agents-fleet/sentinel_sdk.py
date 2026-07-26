@@ -4,8 +4,10 @@ import requests
 import jsonschema
 import os
 import re
+import uuid
 
 SAFETY_SERVICE_URL = "http://localhost:8001/api/v1"
+BANKING_API_URL    = "http://localhost:8000/api/v1"
 
 # Connect to our Redis container
 redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
@@ -104,11 +106,97 @@ def verify_rag_context_via_safety_service(doc_id: str, retrieved_text: str) -> d
         print(f"[SENTINEL SDK] Warning: Safety Service unreachable. {e}")
         return {"status": "SAFE", "reason": "Service unreachable, bypassing."}
 
-def execute_governed_tool(agent_id: str, action_type: str, parameters: dict):
+# ============================================================
+# MODULE 3 HELPERS: Graph Tracker + Risk Scorer
+# ============================================================
+
+def start_agent_trace(agent_id: str) -> str:
+    """Submodule 3.1: Starts a new execution trace. Returns trace_id."""
+    try:
+        resp = requests.post(
+            f"{SAFETY_SERVICE_URL}/graph/start-trace",
+            json={"agent_id": agent_id},
+            timeout=3
+        )
+        if resp.status_code == 200:
+            return resp.json().get("trace_id", str(uuid.uuid4())[:8])
+    except Exception:
+        pass
+    return str(uuid.uuid4())[:8]  # Fallback local ID
+
+def check_graph_and_cycles(trace_id: str, agent_id: str, tool_name: str) -> dict:
+    """Submodule 3.1 + 3.2: Records tool call in graph, checks depth and cycles."""
+    try:
+        resp = requests.post(
+            f"{SAFETY_SERVICE_URL}/graph/record-call",
+            json={"trace_id": trace_id, "agent_id": agent_id, "tool_name": tool_name},
+            timeout=3
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        return {"status": "ALLOWED", "current_depth": 1}
+    except Exception as e:
+        print(f"[SENTINEL SDK] Warning: Graph Tracker unreachable. {e}")
+        return {"status": "ALLOWED", "current_depth": 1}
+
+def compute_contextual_risk(amount: float, account_id: str, call_depth: int = 1) -> dict:
+    """Submodule 3.3: Fetches a risk score from the Risk Scoring Engine."""
+    try:
+        resp = requests.post(
+            f"{SAFETY_SERVICE_URL}/risk/score",
+            json={"amount": amount, "account_id": account_id, "call_depth": call_depth},
+            timeout=3
+        )
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception as e:
+        print(f"[SENTINEL SDK] Warning: Risk Scorer unreachable. {e}")
+    return {"score": 0, "risk_level": "LOW", "factors": []}
+
+# ============================================================
+# MODULE 3 INVESTIGATION TOOLS (called directly by the agent)
+# ============================================================
+
+def get_account_details_tool(account_id: str) -> dict:
+    """Agent investigation tool: fetches full account profile from Banking API."""
+    try:
+        resp = requests.get(f"{BANKING_API_URL}/accounts/{account_id}", timeout=3)
+        return resp.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+def get_transaction_history_tool(account_id: str) -> dict:
+    """Agent investigation tool: fetches transaction history from Banking API."""
+    try:
+        resp = requests.get(f"{BANKING_API_URL}/accounts/{account_id}/transactions", timeout=3)
+        return resp.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+def check_waiver_eligibility_tool(account_id: str) -> dict:
+    """Agent investigation tool: checks if account qualifies for a fee waiver."""
+    try:
+        resp = requests.get(f"{BANKING_API_URL}/accounts/{account_id}/eligibility", timeout=3)
+        return resp.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+def execute_governed_tool(agent_id: str, action_type: str, parameters: dict, trace_id: str = None):
     """
-    This is the Sentinel Interceptor. It sits between the Agent and the Bank.
+    The Sentinel Interceptor — sits between the Agent and the Bank.
+    Runs: Graph Depth Check → Cycle Detection → Schema → Deep Param → Velocity → Risk Score → OPA → Bank API
     """
-    print(f"\\n[SENTINEL INTERCEPTOR] Intercepted tool call from {agent_id}: {action_type}")
+    print(f"\n[SENTINEL INTERCEPTOR] Intercepted tool call from {agent_id}: {action_type}")
+
+    # 0. Execution Graph + Cycle Detection (Module 3.1 & 3.2)
+    if trace_id is None:
+        trace_id = start_agent_trace(agent_id)
+    graph_result = check_graph_and_cycles(trace_id, agent_id, action_type)
+    if graph_result.get("status") == "BLOCKED":
+        print(f"[SENTINEL] Graph/Cycle Check: BLOCKED - {graph_result.get('reason')}")
+        return {"status": "DENIED", "reason": graph_result["reason"]}
+    current_depth = graph_result.get("current_depth", 1)
+    print(f"[SENTINEL] Graph/Cycle Check: PASSED (depth={current_depth})")
     
     # 1. JSON Schema Validation (Module 0.1)
     try:
@@ -145,12 +233,22 @@ def execute_governed_tool(agent_id: str, action_type: str, parameters: dict):
             return {"status": "DENIED", "reason": "Sentinel Velocity Violation: Exceeded $100 fee waiver limit per minute. Possible Salami Slicing Attack detected."}
         print("[SENTINEL] Redis Velocity Check: PASSED")
 
-    # 3. OPA Policy Evaluation (Module 4)
+    # 3. Risk Score + OPA Policy Evaluation (Modules 3.3 + 4)
+    print(f"[SENTINEL] Computing Contextual Risk Score...")
+    account_id = parameters.get("account_id", "unknown")
+    amount = parameters.get("amount", 0)
+    risk_result = compute_contextual_risk(amount, account_id, current_depth)
+    risk_score = risk_result.get("score", 0)
+    print(f"[SENTINEL] Risk Score: {risk_score} ({risk_result.get('risk_level')}) | Factors: {risk_result.get('factors')}")
+
+    # Inject risk_score into OPA parameters
+    opa_parameters = {**parameters, "risk_score": risk_score}
+
     print(f"[SENTINEL] Evaluating OPA Policy for {action_type}...")
     try:
         opa_resp = requests.post(
             f"{SAFETY_SERVICE_URL}/policy/evaluate",
-            json={"action_type": action_type, "parameters": parameters},
+            json={"action_type": action_type, "parameters": opa_parameters},
             timeout=5
         )
         if opa_resp.status_code == 200:
