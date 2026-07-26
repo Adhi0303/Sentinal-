@@ -5,6 +5,10 @@ import jsonschema
 import os
 import re
 import uuid
+from idempotency import (
+    generate_idempotency_key, check_duplicate,
+    mark_processing, store_result, clear_processing
+)
 
 SAFETY_SERVICE_URL = "http://localhost:8001/api/v1"
 BANKING_API_URL    = "http://localhost:8000/api/v1"
@@ -242,6 +246,33 @@ def execute_governed_tool(agent_id: str, action_type: str, parameters: dict, tra
         return {"status": "BLOCKED", "reason": reason}
     print(f"[SENTINEL] Gate 0: PASSED (agent state=ACTIVE)")
 
+    # GATE 0.5: Idempotency Check (Module 5.2) — sub-millisecond Redis lookup
+    idem_key = generate_idempotency_key(agent_id, action_type, parameters)
+    is_dup, cached = check_duplicate(idem_key)
+    if is_dup:
+        if cached:
+            # Completed duplicate — return the original result instantly
+            reason = f"Duplicate request detected. Original processed at {cached.get('processed_at', 'unknown')}. Banking API NOT called."
+            print(f"[SENTINEL] GATE 0.5: DUPLICATE REJECTED - {reason}")
+            _audit_log(agent_id, action_type, "DUPLICATE_REJECTED", reason, parameters)
+            return {
+                "status":           "DUPLICATE_REJECTED",
+                "idempotency_key":  idem_key[:16] + "...",
+                "original_result":  cached.get("result"),
+                "original_decision":cached.get("decision"),
+                "processed_at":     cached.get("processed_at"),
+                "message":          "This exact request was already processed. Original result returned. No double-processing occurred."
+            }
+        else:
+            # Concurrent duplicate — still being processed right now
+            reason = "Concurrent duplicate request detected. An identical request is currently being processed."
+            print(f"[SENTINEL] GATE 0.5: CONCURRENT DUPLICATE BLOCKED")
+            _audit_log(agent_id, action_type, "DUPLICATE_REJECTED", reason, parameters)
+            return {"status": "DUPLICATE_REJECTED", "reason": reason}
+    # Fresh request — mark as processing to block concurrent duplicates
+    mark_processing(idem_key)
+    print(f"[SENTINEL] Gate 0.5: PASSED (fresh request, key={idem_key[:16]}...)")
+
     # Register as in-flight for Saga compensation (Module 6.3)
     _register_in_flight(agent_id, action_type, parameters)
 
@@ -341,12 +372,15 @@ def execute_governed_tool(agent_id: str, action_type: str, parameters: dict, tra
             response = requests.post("http://localhost:8000/api/v1/cards/fee-waiver", json=parameters)
             result = response.json()
             _clear_in_flight(agent_id)  # Module 6.3: clear in-flight on success
+            store_result(idem_key, result, "ALLOWED")  # Module 5.2: cache result for future duplicates
             _audit_log(agent_id, action_type, "ALLOWED", "OPA approved. Request forwarded to Banking API.", parameters, risk_score)
             return result
     except Exception as e:
         _clear_in_flight(agent_id)
+        clear_processing(idem_key)  # Module 5.2: clear processing marker on error (allow retry)
         _audit_log(agent_id, action_type, "ERROR", str(e), parameters, risk_score)
         return {"status": "ERROR", "reason": str(e)}
 
     _clear_in_flight(agent_id)
+    clear_processing(idem_key)  # Module 5.2: clear processing marker for unknown actions
     return {"status": "UNKNOWN_ACTION"}

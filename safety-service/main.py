@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import Response, FileResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 import uvicorn
@@ -13,12 +14,14 @@ from kill_switch import (
     get_fleet_status, KNOWN_FLEET_AGENTS
 )
 from saga_compensator import compensate_and_clear, compensate_fleet
+from telemetry import get_metrics_output
+from report_generator import generate_json_report, generate_pdf_report
 import os
 import requests as http_requests
 
 BANKING_API_URL = "http://localhost:8000/api/v1"
 
-app = FastAPI(title="Sentinel Safety Service — Modules 2, 3, 4, 5, 6")
+app = FastAPI(title="Sentinel Safety Service — Modules 2, 3, 4, 5, 6, 7")
 
 class PromptRequest(BaseModel):
     agent_id: str
@@ -287,6 +290,58 @@ async def killswitch_status():
     Returns HEALTHY if all agents are ACTIVE, DEGRADED if any are QUARANTINED.
     """
     return get_fleet_status()
+
+# ==========================================
+# MODULE 7: TELEMETRY & REGULATORY REPORTS
+# ==========================================
+
+@app.get("/metrics")
+async def prometheus_metrics():
+    """
+    Module 7.2: Prometheus-format metrics endpoint.
+    Exposes live counters for all Sentinel governance decisions,
+    kill-switch events, risk scores, and spend guarded.
+    Scrape this every 5 seconds for real-time dashboard charts.
+    """
+    content, content_type = get_metrics_output()
+    return Response(content=content, media_type=content_type)
+
+@app.get("/api/v1/audit/report")
+async def audit_report_json():
+    """
+    Module 7.3: Generate a full regulatory compliance report in JSON format.
+    Translates every cryptographic audit entry into plain English that
+    compliance officers, regulators (RBI, SEC, FINRA, EU AI Act), and
+    judges can read without any technical knowledge.
+    """
+    print("\n[REPORT] Generating regulatory compliance report (JSON)...")
+    report = generate_json_report()
+    print(f"[REPORT] Report generated: {report['report_id']} | "
+          f"{report['summary']['total_decisions']} decisions translated.")
+    return report
+
+@app.get("/api/v1/audit/report/pdf")
+async def audit_report_pdf():
+    """
+    Module 7.3: Generate and download the regulatory compliance report as a PDF.
+    Produces a professionally formatted document with Amex Blue branding,
+    an executive summary table, and a full plain-English decision log.
+    """
+    print("\n[REPORT] Generating regulatory compliance report (PDF)...")
+    output_path = os.path.join(os.path.dirname(__file__), "sentinel_audit_report.pdf")
+    try:
+        generate_pdf_report(output_path)
+        print(f"[REPORT] PDF generated at: {output_path}")
+        return FileResponse(
+            path=output_path,
+            media_type="application/pdf",
+            filename="sentinel_audit_report.pdf"
+        )
+    except ImportError:
+        raise HTTPException(
+            status_code=501,
+            detail="PDF generation unavailable. Install reportlab: pip install reportlab"
+        )
 
 if __name__ == "__main__":
     print("Starting Sentinel Safety Service on port 8001...")

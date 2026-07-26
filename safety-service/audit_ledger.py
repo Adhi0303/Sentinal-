@@ -1,10 +1,13 @@
 """
-Module 5: Cryptographic Audit Trail & Immutable Ledger
-=======================================================
+Module 5 + 7.2: Cryptographic Audit Trail, Immutable Ledger & Telemetry
+========================================================================
 Every Sentinel decision (ALLOW / DENY / HITL) is written to an append-only
 ledger file using SHA-256 hash chaining. Each entry's hash is computed from
 the PREVIOUS entry's hash + the current entry's data, making it mathematically
 impossible to tamper with any past record without breaking the chain.
+
+Module 7.2 integration: Every new ledger entry also updates Prometheus metrics
+via telemetry.record_decision() so live counters stay in sync automatically.
 """
 
 import hashlib
@@ -13,6 +16,17 @@ import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+
+# Module 7.2 — import telemetry (lazy to avoid circular imports at startup)
+def _update_telemetry(decision: str, agent_id: str, risk_score: int, parameters: dict):
+    """Non-blocking telemetry update — silently ignores errors."""
+    try:
+        from telemetry import record_decision
+        amount = float(parameters.get("amount", 0) or 0)
+        record_decision(decision=decision, agent_id=agent_id,
+                        risk_score=risk_score, amount=amount)
+    except Exception:
+        pass  # Telemetry is non-blocking — never crash the ledger over metrics
 
 LEDGER_PATH = os.path.join(os.path.dirname(__file__), "audit_log.jsonl")
 GENESIS_HASH = "0" * 64   # The "Genesis Block" — the chain starts here
@@ -83,6 +97,8 @@ def append_audit_entry(
         f.write(json.dumps(entry) + "\n")
 
     print(f"[AUDIT LEDGER] Entry #{entry_id} written | Decision={decision} | Hash={entry['entry_hash'][:16]}...")
+    # Module 7.2: Update Prometheus counters (non-blocking)
+    _update_telemetry(decision, agent_id, risk_score, parameters)
     return entry
 
 
