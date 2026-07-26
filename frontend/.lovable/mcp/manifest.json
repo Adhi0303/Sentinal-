@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "sdk_version": "0.24.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "sentinel-gateway-mcp",
+      "version": "0.1.0",
+      "title": "Sentinel Gateway MCP"
+    },
+    "tools": [
+      {
+        "name": "recent_decisions",
+        "title": "Recent decisions",
+        "description": "List the most recent Sentinel Gateway safety decisions (allow, deny, human-review) with risk score, gate, reason and hash.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "default": 10,
+              "description": "How many entries to return.",
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "decision": {
+              "description": "Optional decision filter, e.g. ALLOWED, DENIED, REQUIRE_HITL.",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "fleet_status",
+        "title": "Fleet status",
+        "description": "Report the status of every AI agent in the Sentinel Gateway fleet: active or quarantined, request volume, blocked count and average risk.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "evaluate_policy",
+        "title": "Evaluate policy",
+        "description": "Run a proposed agent action through the Sentinel Gateway policy engine and return the decision, matched rule and reason.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "action_type": {
+              "type": "string",
+              "description": "Action type, e.g. issue_refund or transfer_funds."
+            },
+            "amount": {
+              "type": "number",
+              "description": "Dollar amount involved in the action."
+            },
+            "risk_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100,
+              "description": "Risk score from 0 (safe) to 100 (critical)."
+            },
+            "reason": {
+              "default": "",
+              "description": "Business justification supplied by the agent.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "action_type",
+            "amount",
+            "risk_score"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_policies",
+        "title": "List policies",
+        "description": "List the Sentinel Gateway policy documents with their live version number and the rules currently in production.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "verify_audit_chain",
+        "title": "Verify audit chain",
+        "description": "Verify the cryptographic hash chain of the Sentinel Gateway audit ledger and report whether it is intact.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "compliance_report",
+        "title": "Compliance report",
+        "description": "Generate a regulator-ready Sentinel Gateway compliance summary: decision totals, spend evaluated and audit chain integrity.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "include_log": {
+              "default": false,
+              "description": "Include the most recent 20 ledger entries in the response.",
+              "type": "boolean"
+            }
+          }
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

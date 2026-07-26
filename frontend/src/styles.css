@@ -1,0 +1,366 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Sentinel Gateway — Enterprise Calm Computing design system.
+ * Stripe Dashboard / Linear / Datadog. Warm-white canvas, white floating
+ * sheets, hairline borders, one muted slate-blue accent. No glass, no glow.
+ */
+
+@theme inline {
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-3xl: 22px;
+  --radius-4xl: 24px;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-subtle: var(--surface-subtle);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-link: var(--link);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-light: var(--accent-light);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-hairline: var(--border-hairline);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-allow: var(--allow);
+  --color-deny: var(--deny);
+  --color-hitl: var(--hitl);
+  --color-kill: var(--kill);
+  --color-duplicate: var(--duplicate);
+  --color-info: var(--info);
+
+  --color-on-dark: var(--text-on-dark);
+  --color-on-dark-sub: var(--text-on-dark-sub);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --shadow-card: 0 1px 2px rgb(36 52 78 / 0.03), 0 1px 3px rgb(36 52 78 / 0.025);
+  --shadow-elevated: 0 4px 14px rgb(36 52 78 / 0.05), 0 1px 3px rgb(36 52 78 / 0.03);
+  --shadow-modal: 0 20px 44px rgb(36 52 78 / 0.11), 0 2px 8px rgb(36 52 78 / 0.05);
+
+  --animate-slide-in: slide-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-fade-in: fade-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root {
+  --radius: 20px;
+
+  /* Enterprise calm palette */
+  --background: #f8fafc;
+  --foreground: #1f2937;
+
+  --card: #ffffff;
+  --card-foreground: #1f2937;
+  --surface-elevated: #ffffff;
+  --surface-subtle: #f2f6fb;
+  --popover: #ffffff;
+  --popover-foreground: #1f2937;
+
+  --primary: #5e7fa8;
+  --primary-foreground: #ffffff;
+  --brand: #24344e;
+  --brand-foreground: #ffffff;
+  --link: #5e7fa8;
+
+  --secondary: #f2f6fb;
+  --secondary-foreground: #24344e;
+  --muted: #f2f6fb;
+  --muted-foreground: #6b7c93;
+  --accent: #5e7fa8;
+  --accent-foreground: #ffffff;
+  --accent-light: rgb(94 127 168 / 0.08);
+  --accent-steel: #7089ac;
+  --destructive: #b06266;
+  --destructive-foreground: #ffffff;
+
+  --border: #e4eaf2;
+  --border-hairline: #edf1f7;
+  --input: #ffffff;
+  --ring: #5e7fa8;
+
+  --panel-dark-bg: #24344e;
+  --text-on-dark: rgb(255 255 255 / 0.94);
+  --text-on-dark-sub: rgb(255 255 255 / 0.6);
+
+  --allow: #578d72;
+  --deny: #b06266;
+  --hitl: #ac8149;
+  --kill: #7d6795;
+  --duplicate: #5e7fa8;
+  --info: #6b7c93;
+
+  --chart-1: #5e7fa8;
+  --chart-2: #578d72;
+  --chart-3: #ac8149;
+  --chart-4: #b06266;
+  --chart-5: #7d6795;
+
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    background-image: none;
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* No weight above 500 anywhere. */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  strong,
+  b {
+    font-weight: 500;
+    letter-spacing: -0.011em;
+    color: var(--foreground);
+  }
+
+  .font-bold,
+  .font-semibold,
+  .font-extrabold,
+  .font-black {
+    font-weight: 500;
+  }
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* legacy names kept so older components stay static instead of animating */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes shake {
+  0%,
+  100% {
+    transform: none;
+  }
+}
+@keyframes flash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Floating white sheet — the core surface of the product. */
+@utility panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-card);
+}
+
+@utility panel-dark {
+  background: var(--panel-dark-bg);
+  border: 1px solid rgb(255 255 255 / 0.07);
+  border-radius: 20px;
+  box-shadow: var(--shadow-elevated);
+  color: var(--text-on-dark);
+}
+
+@utility glass {
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+@utility glass-strong {
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-elevated);
+}
+
+/* Small controls: buttons, selects, inputs, chips. */
+@utility glass-chip {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  transition:
+    background 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 160ms ease;
+  &:hover {
+    background: var(--surface-subtle);
+  }
+}
+
+/* Sticky table headers. */
+@utility glass-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-subtle);
+}
+
+@utility hover-lift {
+  transition:
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-elevated);
+  }
+}
+
+@utility mono {
+  font-family: var(--font-mono);
+  font-variant-ligatures: none;
+  font-feature-settings: "tnum" 1;
+}
+
+@utility metric-lg {
+  font-size: 42px;
+  font-weight: 300;
+  letter-spacing: -0.025em;
+  line-height: 1.05;
+}
+
+@utility metric-md {
+  font-size: 28px;
+  font-weight: 300;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+}
+
+@utility section-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+@utility btn-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  transition:
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 120ms ease;
+  &:active {
+    transform: translateY(0.5px);
+  }
+}
+
+@utility btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+  box-shadow: var(--shadow-card);
+  &:hover {
+    background: #53718f;
+  }
+}
+
+@utility btn-secondary {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  &:hover {
+    background: var(--surface-subtle);
+  }
+}
+
+@utility btn-destructive {
+  background: var(--card);
+  border: 1px solid color-mix(in oklab, var(--deny) 40%, transparent);
+  color: var(--deny);
+  &:hover {
+    background: color-mix(in oklab, var(--deny) 8%, white);
+  }
+}
+
+/* Muted pill badge for statuses. */
+@utility pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+@utility row-hover {
+  transition: background 140ms ease;
+  &:hover {
+    background: var(--surface-subtle);
+  }
+}
+
+@utility scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
