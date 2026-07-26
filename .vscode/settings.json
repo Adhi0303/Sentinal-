@@ -1,0 +1,7 @@
+{
+    "python.envFile":  "/.env",
+    "python.analysis.extraPaths":  [
+                                       "./agents-fleet",
+                                       "./safety-service"
+                                   ]
+}
