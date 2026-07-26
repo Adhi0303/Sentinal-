@@ -181,20 +181,79 @@ def check_waiver_eligibility_tool(account_id: str) -> dict:
     except Exception as e:
         return {"error": str(e)}
 
+def _audit_log(agent_id: str, action_type: str, decision: str, reason: str, parameters: dict, risk_score: int = 0):
+    """Module 5: Silently calls the Safety Service to write a tamper-proof audit entry."""
+    try:
+        requests.post(
+            f"{SAFETY_SERVICE_URL}/audit/log",
+            json={
+                "agent_id":    agent_id,
+                "action_type": action_type,
+                "decision":    decision,
+                "reason":      reason,
+                "parameters":  parameters,
+                "risk_score":  risk_score
+            },
+            timeout=3
+        )
+    except Exception as e:
+        print(f"[SENTINEL SDK] Warning: Audit logging failed (non-blocking). {e}")
+
+
+def check_quarantine_status(agent_id: str) -> str:
+    """
+    Module 6.2: Gate 0 — Read agent quarantine state DIRECTLY from Redis.
+    No HTTP call — sub-millisecond. Returns 'QUARANTINED' or 'ACTIVE'.
+    """
+    state = redis_client.get(f"agent:state:{agent_id}")
+    return state if state else "ACTIVE"
+
+
+def _register_in_flight(agent_id: str, action_type: str, parameters: dict):
+    """Module 6.3: Register an operation as in-flight in Redis for Saga compensation."""
+    import json
+    record = json.dumps({
+        "agent_id":    agent_id,
+        "action_type": action_type,
+        "parameters":  parameters,
+    })
+    redis_client.setex(f"saga:in-flight:{agent_id}", 60, record)
+
+
+def _clear_in_flight(agent_id: str):
+    """Module 6.3: Clear the in-flight record after successful completion."""
+    redis_client.delete(f"saga:in-flight:{agent_id}")
+
+
 def execute_governed_tool(agent_id: str, action_type: str, parameters: dict, trace_id: str = None):
     """
     The Sentinel Interceptor — sits between the Agent and the Bank.
-    Runs: Graph Depth Check → Cycle Detection → Schema → Deep Param → Velocity → Risk Score → OPA → Bank API
+    Pipeline: Gate 0 (Quarantine) → Graph → Schema → Params → Velocity → Risk → OPA → Bank API
+    Every decision is automatically written to the cryptographic audit ledger (Module 5).
     """
     print(f"\n[SENTINEL INTERCEPTOR] Intercepted tool call from {agent_id}: {action_type}")
+
+    # GATE 0: Quarantine Check (Module 6.2) — reads Redis directly, sub-millisecond, no HTTP
+    quarantine_state = check_quarantine_status(agent_id)
+    if quarantine_state == "QUARANTINED":
+        reason = f"Agent '{agent_id}' is QUARANTINED. Kill-switch is active. All operations blocked."
+        print(f"[SENTINEL] GATE 0: BLOCKED - {reason}")
+        _audit_log(agent_id, action_type, "BLOCKED", reason, parameters)
+        return {"status": "BLOCKED", "reason": reason}
+    print(f"[SENTINEL] Gate 0: PASSED (agent state=ACTIVE)")
+
+    # Register as in-flight for Saga compensation (Module 6.3)
+    _register_in_flight(agent_id, action_type, parameters)
 
     # 0. Execution Graph + Cycle Detection (Module 3.1 & 3.2)
     if trace_id is None:
         trace_id = start_agent_trace(agent_id)
     graph_result = check_graph_and_cycles(trace_id, agent_id, action_type)
     if graph_result.get("status") == "BLOCKED":
-        print(f"[SENTINEL] Graph/Cycle Check: BLOCKED - {graph_result.get('reason')}")
-        return {"status": "DENIED", "reason": graph_result["reason"]}
+        reason = graph_result["reason"]
+        print(f"[SENTINEL] Graph/Cycle Check: BLOCKED - {reason}")
+        _audit_log(agent_id, action_type, "DENIED", reason, parameters)
+        return {"status": "DENIED", "reason": reason}
     current_depth = graph_result.get("current_depth", 1)
     print(f"[SENTINEL] Graph/Cycle Check: PASSED (depth={current_depth})")
     
@@ -205,32 +264,34 @@ def execute_governed_tool(agent_id: str, action_type: str, parameters: dict, tra
             jsonschema.validate(instance=parameters, schema=schema)
             print("[SENTINEL] Schema Validation: PASSED")
     except jsonschema.exceptions.ValidationError as e:
+        reason = f"Sentinel JSON Schema Violation: {e.message}"
         print(f"[SENTINEL] Schema Validation: FAILED - {e.message}")
-        return {"status": "DENIED", "reason": f"Sentinel JSON Schema Violation: {e.message}"}
+        _audit_log(agent_id, action_type, "DENIED", reason, parameters)
+        return {"status": "DENIED", "reason": reason}
 
     # 1.5 Deep Parameter Validation (Module 2.2)
     deep_val = _validate_parameters_deep(parameters)
     if deep_val["status"] != "PASSED":
-        print(f"[SENTINEL] Deep Parameter Validation: FAILED - {deep_val['reason']}")
+        reason = deep_val["reason"]
+        print(f"[SENTINEL] Deep Parameter Validation: FAILED - {reason}")
+        _audit_log(agent_id, action_type, "DENIED", reason, parameters)
         return deep_val
     print("[SENTINEL] Deep Parameter Validation: PASSED")
 
     # 2. Redis Rate Limiting (Module 0.2)
-    # Check if the agent is exceeding the $100 per minute limit
     if action_type == "FEE_WAIVER":
         import time
         now_ms = int(time.time() * 1000)
         amount = parameters.get("amount", 0)
-        
-        # Args: [current_timestamp, window_ms (60s), max_amount_in_window ($100), requested_amount]
         allowed = rate_limit_script(
-            keys=[f"rate:{agent_id}:fee_waivers"], 
+            keys=[f"rate:{agent_id}:fee_waivers"],
             args=[now_ms, 60000, 100.00, amount]
         )
-        
         if not allowed:
+            reason = "Sentinel Velocity Violation: Exceeded $100 fee waiver limit per minute. Possible Salami Slicing Attack detected."
             print("[SENTINEL] Redis Velocity Check: FAILED (Salami Slicing detected)")
-            return {"status": "DENIED", "reason": "Sentinel Velocity Violation: Exceeded $100 fee waiver limit per minute. Possible Salami Slicing Attack detected."}
+            _audit_log(agent_id, action_type, "DENIED", reason, parameters)
+            return {"status": "DENIED", "reason": reason}
         print("[SENTINEL] Redis Velocity Check: PASSED")
 
     # 3. Risk Score + OPA Policy Evaluation (Modules 3.3 + 4)
@@ -241,7 +302,6 @@ def execute_governed_tool(agent_id: str, action_type: str, parameters: dict, tra
     risk_score = risk_result.get("score", 0)
     print(f"[SENTINEL] Risk Score: {risk_score} ({risk_result.get('risk_level')}) | Factors: {risk_result.get('factors')}")
 
-    # Inject risk_score into OPA parameters
     opa_parameters = {**parameters, "risk_score": risk_score}
 
     print(f"[SENTINEL] Evaluating OPA Policy for {action_type}...")
@@ -254,28 +314,39 @@ def execute_governed_tool(agent_id: str, action_type: str, parameters: dict, tra
         if opa_resp.status_code == 200:
             policy_result = opa_resp.json()
             decision = policy_result.get("decision", "DENY")
-            reason = policy_result.get("reason", "Unknown")
-            
+            reason   = policy_result.get("reason", "Unknown")
             print(f"[SENTINEL] OPA Decision: {decision} | Reason: {reason}")
+
             if decision == "DENY":
+                _audit_log(agent_id, action_type, "DENIED", reason, parameters, risk_score)
                 return {"status": "DENIED", "reason": f"Policy Engine DENY: {reason}"}
             elif decision == "REQUIRE_HITL":
-                # For now, return HITL response string to the agent
+                _audit_log(agent_id, action_type, "REQUIRE_HITL", reason, parameters, risk_score)
                 return {"status": "REQUIRE_HITL", "reason": f"Human Approval Required: {reason}"}
         else:
+            reason = "Policy Engine Evaluation Failed."
             print(f"[SENTINEL] Error from Policy Engine: {opa_resp.text}")
-            return {"status": "DENIED", "reason": "Policy Engine Evaluation Failed."}
+            _audit_log(agent_id, action_type, "DENIED", reason, parameters, risk_score)
+            return {"status": "DENIED", "reason": reason}
     except Exception as e:
+        reason = "Policy Engine unreachable. Failsafe: DENY."
         print(f"[SENTINEL] Warning: Policy Engine unreachable. {e}")
-        return {"status": "DENIED", "reason": "Policy Engine unreachable. Failsafe: DENY."}
+        _audit_log(agent_id, action_type, "DENIED", reason, parameters, risk_score)
+        return {"status": "DENIED", "reason": reason}
 
-    # 4. Forward to Mock Banking API (Module 8.1)
+    # 4. Forward to Mock Banking API
     try:
         print("[SENTINEL] Forwarding valid request to Core Banking API...")
         if action_type == "FEE_WAIVER":
             response = requests.post("http://localhost:8000/api/v1/cards/fee-waiver", json=parameters)
-            return response.json()
+            result = response.json()
+            _clear_in_flight(agent_id)  # Module 6.3: clear in-flight on success
+            _audit_log(agent_id, action_type, "ALLOWED", "OPA approved. Request forwarded to Banking API.", parameters, risk_score)
+            return result
     except Exception as e:
+        _clear_in_flight(agent_id)
+        _audit_log(agent_id, action_type, "ERROR", str(e), parameters, risk_score)
         return {"status": "ERROR", "reason": str(e)}
 
+    _clear_in_flight(agent_id)
     return {"status": "UNKNOWN_ACTION"}

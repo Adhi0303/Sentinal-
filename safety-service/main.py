@@ -1,18 +1,24 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import uvicorn
 from classifiers.injection_detector import detector
 from rag_firewall import firewall
 from opa_evaluator import evaluate_policy
 from graph_tracker import start_trace, record_tool_call, get_trace_graph
 from risk_scorer import compute_risk_score
+from audit_ledger import append_audit_entry, get_recent_entries, verify_chain_integrity
+from kill_switch import (
+    quarantine_agent, quarantine_fleet, release_agent,
+    get_fleet_status, KNOWN_FLEET_AGENTS
+)
+from saga_compensator import compensate_and_clear, compensate_fleet
 import os
 import requests as http_requests
 
 BANKING_API_URL = "http://localhost:8000/api/v1"
 
-app = FastAPI(title="Sentinel Safety Service — Modules 2, 3, 4")
+app = FastAPI(title="Sentinel Safety Service — Modules 2, 3, 4, 5, 6")
 
 class PromptRequest(BaseModel):
     agent_id: str
@@ -154,6 +160,133 @@ async def risk_score(req: RiskScoreRequest):
 
     result = compute_risk_score(req.amount, account_data, req.call_depth)
     return RiskScoreResponse(**result)
+
+# ==========================================
+# MODULE 5: CRYPTOGRAPHIC AUDIT TRAIL
+# ==========================================
+
+class AuditEntryRequest(BaseModel):
+    agent_id: str
+    action_type: str
+    decision: str
+    reason: str
+    parameters: Dict[str, Any]
+    risk_score: Optional[int] = 0
+
+@app.post("/api/v1/audit/log")
+async def audit_log_entry(req: AuditEntryRequest):
+    """
+    Module 5: Append a new tamper-proof entry to the cryptographic audit ledger.
+    Called automatically by the Sentinel SDK after every governance decision.
+    """
+    entry = append_audit_entry(
+        agent_id=req.agent_id,
+        action_type=req.action_type,
+        decision=req.decision,
+        reason=req.reason,
+        parameters=req.parameters,
+        risk_score=req.risk_score
+    )
+    return {"status": "LOGGED", "entry_id": entry["entry_id"], "entry_hash": entry["entry_hash"]}
+
+@app.get("/api/v1/audit/recent")
+async def audit_get_recent(limit: int = Query(default=20, le=100)):
+    """
+    Module 5: Returns the last N audit entries for the dashboard feed.
+    """
+    entries = get_recent_entries(limit=limit)
+    return {"entries": entries, "count": len(entries)}
+
+@app.get("/api/v1/audit/verify")
+async def audit_verify_chain():
+    """
+    Module 5: Walks the ENTIRE audit chain and verifies every SHA-256 hash.
+    Returns INTACT or TAMPERED with the exact entry number where the chain broke.
+    """
+    print("\n[AUDIT] Running full chain integrity verification...")
+    result = verify_chain_integrity()
+    print(f"[AUDIT] Verification result: {result['status']}")
+    return result
+
+# ==========================================
+# MODULE 6: EMERGENCY KILL-SWITCH SYSTEM
+# ==========================================
+
+class KillSwitchRequest(BaseModel):
+    agent_id: Optional[str] = None
+    triggered_by: Optional[str] = "admin"
+
+def _audit_kill_event(agent_id: str, event: str, details: dict):
+    """Write kill-switch events to the Module 5 Audit Ledger."""
+    append_audit_entry(
+        agent_id=agent_id,
+        action_type="KILL_SWITCH",
+        decision=event,
+        reason=f"Emergency kill-switch event: {event}",
+        parameters=details,
+        risk_score=0,
+    )
+
+@app.post("/api/v1/killswitch/isolate")
+async def killswitch_isolate(req: KillSwitchRequest):
+    """
+    Module 6.2: Quarantine a single agent immediately.
+    All subsequent requests from this agent will be blocked at Gate 0.
+    """
+    if not req.agent_id:
+        raise HTTPException(status_code=400, detail="agent_id is required.")
+    print(f"\n[KILL-SWITCH] ISOLATE signal received for agent: {req.agent_id}")
+    result = quarantine_agent(req.agent_id, triggered_by=req.triggered_by)
+    # Compensate any in-flight operations
+    compensation = compensate_and_clear(req.agent_id, audit_callback=append_audit_entry)
+    # Write kill event to immutable audit ledger
+    _audit_kill_event(req.agent_id, "AGENT_QUARANTINED", {"triggered_by": req.triggered_by})
+    return {
+        **result,
+        "in_flight_compensation": compensation or "No in-flight operations found.",
+    }
+
+@app.post("/api/v1/killswitch/fleet-kill")
+async def killswitch_fleet_kill(req: KillSwitchRequest):
+    """
+    Module 6.1 + 6.2: Execute a fleet-wide kill-switch.
+    ALL agents are quarantined simultaneously via Redis. Pub/Sub broadcasts the event.
+    """
+    print(f"\n[KILL-SWITCH] FLEET KILL signal received from: {req.triggered_by}")
+    result = quarantine_fleet(triggered_by=req.triggered_by)
+    # Compensate all in-flight operations across the fleet
+    compensations = compensate_fleet(KNOWN_FLEET_AGENTS, audit_callback=append_audit_entry)
+    # Write fleet kill event to immutable audit ledger
+    _audit_kill_event("FLEET", "FLEET_QUARANTINED", {
+        "triggered_by":      req.triggered_by,
+        "agents_quarantined": result.get("quarantined_agents", []),
+        "compensations":     len(compensations),
+    })
+    return {
+        **result,
+        "in_flight_compensations": compensations or [],
+    }
+
+@app.post("/api/v1/killswitch/release")
+async def killswitch_release(req: KillSwitchRequest):
+    """
+    Module 6.2: Release a quarantined agent back to ACTIVE status.
+    The agent will resume normal operation on its next request.
+    """
+    if not req.agent_id:
+        raise HTTPException(status_code=400, detail="agent_id is required.")
+    print(f"\n[KILL-SWITCH] RELEASE signal received for agent: {req.agent_id}")
+    result = release_agent(req.agent_id, released_by=req.triggered_by)
+    _audit_kill_event(req.agent_id, "AGENT_RELEASED", {"released_by": req.triggered_by})
+    return result
+
+@app.get("/api/v1/killswitch/status")
+async def killswitch_status():
+    """
+    Module 6.2: Get the current quarantine status of the entire known fleet.
+    Returns HEALTHY if all agents are ACTIVE, DEGRADED if any are QUARANTINED.
+    """
+    return get_fleet_status()
 
 if __name__ == "__main__":
     print("Starting Sentinel Safety Service on port 8001...")
