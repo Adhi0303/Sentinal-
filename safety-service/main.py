@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import Response, FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 import uvicorn
@@ -22,6 +23,16 @@ import requests as http_requests
 BANKING_API_URL = "http://localhost:8000/api/v1"
 
 app = FastAPI(title="Sentinel Safety Service — Modules 2, 3, 4, 5, 6, 7")
+
+# CORS — allow Lovable and any local frontend to connect
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 class PromptRequest(BaseModel):
     agent_id: str
