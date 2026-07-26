@@ -305,6 +305,7 @@ async def killswitch_release(req: KillSwitchRequest):
     return result
 
 @app.get("/api/v1/killswitch/status")
+@app.get("/api/v1/fleet/status")
 async def killswitch_status():
     """
     Module 6.2: Get the current quarantine status of the entire known fleet.
