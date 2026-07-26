@@ -402,5 +402,39 @@ def health():
     return {"status": "OK", "service": "Mock Core Banking API", "port": 8000}
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Module 5.3: Two-Phase Commit — Reservation List Endpoint
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/api/v1/ledger/reserves")
+def list_reservations():
+    """
+    Returns all active (RESERVED) fund reservations.
+    Used by the safety service to expose 2PC 'funds in transit'
+    visibility to the operator dashboard.
+
+    Returns only RESERVED status entries — COMMITTED and ROLLED_BACK
+    are historical and not shown here.
+    """
+    active = {
+        rid: res
+        for rid, res in reserves.items()
+        if res.get("status") == "RESERVED"
+    }
+    return {
+        "count":        len(active),
+        "reservations": {
+            rid: {
+                "account_id":  r["account_id"],
+                "amount":      r["amount"],
+                "reserved_at": r.get("reserved_at", "N/A"),
+                "status":      "RESERVED",
+            }
+            for rid, r in active.items()
+        },
+    }
+
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

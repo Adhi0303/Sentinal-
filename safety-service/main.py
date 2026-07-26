@@ -22,7 +22,7 @@ import requests as http_requests
 
 BANKING_API_URL = "http://localhost:8000/api/v1"
 
-app = FastAPI(title="Sentinel Safety Service — Modules 2, 3, 4, 5, 6, 7")
+app = FastAPI(title="Sentinel Safety Service — Modules 2, 3, 4, 5, 6, 7 | 2PC Enabled")
 
 # CORS — allow Lovable and any local frontend to connect
 app.add_middleware(
@@ -440,6 +440,48 @@ async def dashboard_summary():
 @app.get("/health")
 async def health():
     return {"status": "OK", "service": "Sentinel Safety Service", "port": 8001}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Module 5.3: Two-Phase Commit Status Endpoint
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/api/v1/2pc/reserves")
+async def get_active_reserves():
+    """
+    Returns all active fund reservations in the banking ledger.
+    These are funds that have been reserved (Phase 1 PREPARE done) but not
+    yet committed or rolled back — i.e., money currently "in transit" through 2PC.
+    Useful for the dashboard to show real-time liquidity in motion.
+    """
+    try:
+        resp = http_requests.get(f"{BANKING_API_URL}/ledger/reserves", timeout=5)
+        data = resp.json()
+        reservations = data.get("reservations", {})
+
+        return {
+            "active_reservations": len(reservations),
+            "total_locked_amount": sum(
+                r.get("amount", 0) for r in reservations.values()
+            ),
+            "reservations": [
+                {
+                    "reserve_id":  rid,
+                    "account_id":  r.get("account_id"),
+                    "amount":      r.get("amount"),
+                    "reserved_at": r.get("reserved_at"),
+                    "status":      "LOCKED",
+                }
+                for rid, r in reservations.items()
+            ],
+        }
+    except Exception as e:
+        return {
+            "active_reservations": 0,
+            "total_locked_amount": 0.0,
+            "reservations": [],
+            "error": f"Could not fetch reservations: {e}",
+        }
 
 
 if __name__ == "__main__":

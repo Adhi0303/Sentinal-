@@ -4,11 +4,18 @@ import requests
 import jsonschema
 import os
 import re
+import sys
 import uuid
 from idempotency import (
     generate_idempotency_key, check_duplicate,
     mark_processing, store_result, clear_processing
 )
+
+# Module 5.3: Two-Phase Commit — import from safety-service directory
+_SAFETY_SERVICE_DIR = os.path.join(os.path.dirname(__file__), '..', 'safety-service')
+if _SAFETY_SERVICE_DIR not in sys.path:
+    sys.path.insert(0, _SAFETY_SERVICE_DIR)
+from two_phase_commit import execute_2pc_wire
 
 SAFETY_SERVICE_URL = "http://localhost:8001/api/v1"
 BANKING_API_URL    = "http://localhost:8000/api/v1"
@@ -380,8 +387,73 @@ def execute_governed_tool(agent_id: str, action_type: str, parameters: dict, tra
             result = response.json()
 
         elif action_type == "WIRE_TRANSFER":
-            response = requests.post("http://localhost:8000/api/v1/ledger/transfers/wire", json=parameters)
-            result = response.json()
+            # ── Module 5.3: Two-Phase Commit ──────────────────────────────
+            # Phase 1 (Reserve) + Phase 2 (Commit) — prevents TOCTOU race
+            # conditions in multi-agent concurrent wire transfer scenarios.
+            two_pc_result = execute_2pc_wire(
+                from_account = parameters.get("from_account"),
+                to_account   = parameters.get("to_account"),
+                amount       = float(parameters.get("amount", 0)),
+                reference    = parameters.get("reference", "SDK-WIRE"),
+                currency     = parameters.get("currency", "USD"),
+            )
+
+            # Map 2PC outcome to standard SDK result format
+            tpc_status = two_pc_result.get("status")
+
+            if tpc_status == "2PC_COMMITTED":
+                result = {
+                    "status":         "SUCCESS",
+                    "message":        two_pc_result["message"],
+                    "transaction_id": two_pc_result.get("transaction_id"),
+                    "reserve_id":     two_pc_result.get("reserve_id"),
+                    "protocol":       "2PC_COMMITTED",
+                }
+
+            elif tpc_status == "2PC_ABORTED":
+                # Funds were insufficient at reservation time — deny cleanly
+                _clear_in_flight(agent_id)
+                clear_processing(idem_key)
+                _audit_log(
+                    agent_id, action_type, "DENIED",
+                    two_pc_result["message"], parameters, risk_score
+                )
+                return {
+                    "status": "DENIED",
+                    "reason": two_pc_result["message"],
+                    "reserve_id": two_pc_result.get("reserve_id"),
+                    "protocol": "2PC_ABORTED",
+                }
+
+            elif tpc_status == "2PC_ROLLBACK":
+                # Commit failed, reservation was rolled back — no money moved
+                _clear_in_flight(agent_id)
+                clear_processing(idem_key)
+                _audit_log(
+                    agent_id, action_type, "ERROR",
+                    two_pc_result["message"], parameters, risk_score
+                )
+                return {
+                    "status": "ERROR",
+                    "reason": two_pc_result["message"],
+                    "reserve_id": two_pc_result.get("reserve_id"),
+                    "protocol": "2PC_ROLLBACK",
+                }
+
+            else:
+                # Unexpected error from 2PC layer
+                _clear_in_flight(agent_id)
+                clear_processing(idem_key)
+                _audit_log(
+                    agent_id, action_type, "ERROR",
+                    two_pc_result.get("message", "Unknown 2PC error"),
+                    parameters, risk_score
+                )
+                return {
+                    "status": "ERROR",
+                    "reason": two_pc_result.get("message", "Unknown 2PC error"),
+                    "protocol": tpc_status,
+                }
 
         elif action_type == "CREDIT_LIMIT_INCREASE":
             response = requests.post("http://localhost:8000/api/v1/credit/limit-increase", json=parameters)
