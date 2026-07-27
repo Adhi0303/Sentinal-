@@ -236,16 +236,9 @@ function CustomerPortal() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen flex flex-col text-foreground">
       {/* Header */}
-      <header
-        className="sticky top-0 z-30 flex items-center justify-between px-8 py-4"
-        style={{
-          background: "rgba(255,255,255,0.06)",
-          backdropFilter: "blur(24px)",
-          borderBottom: "1px solid rgba(255,255,255,0.08)",
-        }}
-      >
+      <header className="sticky top-0 z-30 flex h-24 items-center justify-between px-10">
         <div className="flex items-center gap-3">
           <div
             className="size-9 rounded-xl flex items-center justify-center"
@@ -282,7 +275,7 @@ function CustomerPortal() {
         </div>
       </header>
 
-      <div className="px-8 py-8 max-w-[1400px] mx-auto grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
+      <div className="px-10 pb-10 max-w-[1400px] w-full mx-auto grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,420px)] flex-1">
         {/* LEFT: Account Info + Transactions */}
         <div className="flex flex-col gap-6">
           {/* Account Summary Cards */}
@@ -293,26 +286,18 @@ function CustomerPortal() {
           ) : account ? (
             <>
               {/* Main account card */}
-              <div
-                className="rounded-[24px] p-7 relative overflow-hidden"
-                style={{
-                  background: "linear-gradient(135deg, hsl(212 90% 30%), hsl(260 80% 35%))",
-                  boxShadow: "0 20px 60px rgba(0, 111, 207, 0.25)",
-                }}
-              >
-                <div
-                  className="pointer-events-none absolute top-0 right-0 w-64 h-64 rounded-full opacity-20"
-                  style={{ background: "radial-gradient(circle, hsl(212 100% 70%), transparent)" }}
-                />
+              <div className="glass rounded-[32px] p-8 relative overflow-hidden flex flex-col justify-between min-h-[220px]">
                 <div className="flex items-start justify-between mb-8">
                   <div>
-                    <p className="text-[12px] text-white/60 uppercase tracking-wider">Cardholder</p>
-                    <h2 className="text-[22px] font-semibold text-white mt-1">{account.name}</h2>
+                    <p className="text-[12px] text-muted-foreground uppercase tracking-wider font-medium">Cardholder</p>
+                    <h2 className="text-[28px] font-medium text-foreground tracking-tight mt-1">{account.name}</h2>
                   </div>
                   <span
                     className={cn(
-                      "px-3 py-1.5 rounded-full text-[11px] font-medium border",
-                      statusBadge(account.status),
+                      "px-3 py-1 rounded-full text-[12px] font-medium border",
+                      account.status === "ACTIVE" 
+                        ? "bg-allow/10 text-allow border-allow/20" 
+                        : "bg-deny/10 text-deny border-deny/20",
                     )}
                   >
                     {account.status}
@@ -320,20 +305,20 @@ function CustomerPortal() {
                 </div>
                 <div className="grid grid-cols-3 gap-6">
                   <div>
-                    <p className="text-[11px] text-white/50 uppercase tracking-wider">Balance</p>
-                    <p className="text-[20px] font-semibold text-white mt-1">
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Balance</p>
+                    <p className="text-[24px] font-semibold text-foreground tracking-tight mt-1">
                       ${account.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] text-white/50 uppercase tracking-wider">Credit Limit</p>
-                    <p className="text-[20px] font-semibold text-white mt-1">
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Credit Limit</p>
+                    <p className="text-[24px] font-semibold text-foreground tracking-tight mt-1">
                       ${account.credit_limit.toLocaleString("en-US")}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] text-white/50 uppercase tracking-wider">Credit Score</p>
-                    <p className="text-[20px] font-semibold text-white mt-1">{account.credit_score}</p>
+                    <p className="text-[11px] text-muted-foreground uppercase tracking-wider font-medium">Credit Score</p>
+                    <p className="text-[24px] font-semibold text-primary tracking-tight mt-1">{account.credit_score}</p>
                   </div>
                 </div>
               </div>
@@ -357,12 +342,12 @@ function CustomerPortal() {
                     icon: <DollarSign className="size-4" />,
                   },
                 ].map((s) => (
-                  <div key={s.label} className="glass rounded-[16px] p-4">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-2">
+                  <div key={s.label} className="glass rounded-[24px] p-5">
+                    <div className="flex items-center gap-2 text-muted-foreground mb-3">
                       {s.icon}
-                      <span className="text-[11px] uppercase tracking-wider">{s.label}</span>
+                      <span className="text-[11px] uppercase tracking-wider font-medium">{s.label}</span>
                     </div>
-                    <p className="text-[18px] font-semibold text-foreground">{s.value}</p>
+                    <p className="text-[20px] font-medium text-foreground tracking-tight">{s.value}</p>
                   </div>
                 ))}
               </div>
@@ -374,8 +359,8 @@ function CustomerPortal() {
           )}
 
           {/* Transaction History */}
-          <div className="glass rounded-[20px] p-6">
-            <h3 className="text-[15px] font-semibold mb-4 flex items-center gap-2">
+          <div className="glass rounded-[32px] p-8 flex-1 flex flex-col min-h-[300px]">
+            <h3 className="text-[15px] font-semibold mb-6 flex items-center gap-2">
               <Activity className="size-4 text-primary" strokeWidth={1.8} />
               Recent Transactions
             </h3>
@@ -412,7 +397,7 @@ function CustomerPortal() {
         {/* RIGHT: Chat + Telemetry */}
         <div className="flex flex-col gap-4">
           {/* Chat window */}
-          <div className="glass rounded-[20px] flex flex-col" style={{ height: "520px" }}>
+          <div className="glass rounded-[32px] flex flex-col flex-1 h-[600px] xl:h-auto">
             <div className="px-5 py-4 border-b border-border/40 flex items-center gap-2">
               <User className="size-4 text-primary" strokeWidth={1.8} />
               <span className="text-[13px] font-semibold">Amex Virtual Assistant</span>

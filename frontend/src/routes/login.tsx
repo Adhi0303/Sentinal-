@@ -42,7 +42,7 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-background">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden text-foreground">
       {/* Ambient background orbs */}
       <div
         className="pointer-events-none absolute inset-0"
@@ -55,16 +55,7 @@ function LoginPage() {
 
       {/* Card */}
       <div className="relative z-10 w-full max-w-[420px] px-4">
-        <div
-          className="rounded-[28px] p-8 flex flex-col gap-6"
-          style={{
-            background: "rgba(255,255,255,0.08)",
-            backdropFilter: "blur(32px)",
-            border: "1px solid rgba(255,255,255,0.14)",
-            boxShadow:
-              "0 24px 80px rgba(0,0,0,0.24), inset 0 1px 0 rgba(255,255,255,0.15)",
-          }}
-        >
+        <div className="glass rounded-[32px] p-8 flex flex-col gap-6">
           {/* Logo */}
           <div className="flex flex-col items-center gap-3 pb-2">
             <div
