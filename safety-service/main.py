@@ -78,10 +78,21 @@ class RiskScoreResponse(BaseModel):
 async def sanitize_prompt(req: PromptRequest):
     """
     Submodule 2.1: Prompt Injection & Goal Hijacking Detector
-    Scans the incoming prompt using Regex and Llama-Guard.
+    Scans the incoming prompt using Regex and Llama-Guard, and logs the conversation to the ledger.
     """
     print(f"\n[SAFETY SERVICE] Scanning prompt for agent {req.agent_id}...")
     result = detector.scan(req.text)
+    
+    # Log the conversation / prompt scan to the Audit Ledger
+    decision = "DENIED" if result["status"] == "BLOCKED" else "ALLOWED"
+    append_audit_entry(
+        agent_id=req.agent_id,
+        action_type="CONVERSATION",
+        decision=decision,
+        reason=result["reason"] if decision == "DENIED" else "Prompt scan passed. Conversation allowed.",
+        parameters={"prompt": req.text},
+        risk_score=0
+    )
     
     print(f"[SAFETY SERVICE] Result: {result['status']} | Reason: {result['reason']}")
     return SafetyResponse(status=result["status"], reason=result["reason"])
