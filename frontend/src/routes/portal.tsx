@@ -435,14 +435,11 @@ function CustomerPortal() {
               ))}
               {busy && (
                 <div className="flex justify-start">
-                  <div className="glass rounded-[16px] rounded-bl-[4px] px-4 py-3 flex items-center gap-2">
-                    {[0, 1, 2].map((i) => (
-                      <span
-                        key={i}
-                        className="size-1.5 rounded-full bg-muted-foreground animate-bounce"
-                        style={{ animationDelay: `${i * 150}ms` }}
-                      />
-                    ))}
+                  <div className="glass rounded-[16px] rounded-bl-[4px] px-4 py-3 flex items-center gap-3 text-[12px] text-muted-foreground max-w-[85%]">
+                    <div className="size-3.5 rounded-full border-2 border-primary/30 border-t-primary animate-spin shrink-0" />
+                    <span className="truncate">
+                      Amex Virtual Assistant is working...
+                    </span>
                   </div>
                 </div>
               )}
@@ -472,25 +469,7 @@ function CustomerPortal() {
             </div>
           </div>
 
-          {/* Telemetry Log */}
-          {logs.length > 0 && (
-            <div className="glass rounded-[20px] p-5">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                Sentinel Security Log
-              </p>
-              <div
-                ref={logRef}
-                className="flex flex-col gap-1 max-h-[200px] overflow-y-auto"
-              >
-                {logs.map((l, i) => (
-                  <div key={i} className="flex gap-2 text-[11px] mono">
-                    <span className="text-muted-foreground/50 shrink-0">{l.ts}</span>
-                    <span className={LOG_COLOR[l.token ?? "default"]}>{l.text}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+
         </div>
       </div>
     </div>

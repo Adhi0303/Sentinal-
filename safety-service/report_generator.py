@@ -185,6 +185,10 @@ def generate_json_report() -> Dict[str, Any]:
         "duplicate_rejections":    0,
         "kill_switch_events":      0,
         "total_spend_evaluated":   0.0,
+        "total_money_requested":   0.0,
+        "total_money_approved":    0.0,
+        "total_money_denied":      0.0,
+        "total_money_escalated":   0.0,
     }
 
     translated = []
@@ -192,20 +196,26 @@ def generate_json_report() -> Dict[str, Any]:
         d = entry.get("decision", "")
         params = entry.get("parameters", {})
 
+        amt = float(params.get("amount", 0) or 0)
+        
+        if amt > 0:
+            summary["total_money_requested"] += amt
+            summary["total_spend_evaluated"] += amt
+
         if d == "ALLOWED":
             summary["allowed"] += 1
-            amt = params.get("amount", 0) or 0
-            summary["total_spend_evaluated"] += float(amt)
+            summary["total_money_approved"] += amt
         elif d == "DENIED":
             summary["denied"] += 1
-            amt = params.get("amount", 0) or 0
-            summary["total_spend_evaluated"] += float(amt)
+            summary["total_money_denied"] += amt
         elif d == "BLOCKED":
             summary["blocked_by_killswitch"] += 1
         elif d == "DUPLICATE_REJECTED":
             summary["duplicate_rejections"] += 1
+            summary["total_money_denied"] += amt
         elif d == "REQUIRE_HITL":
             summary["hitl_escalations"] += 1
+            summary["total_money_escalated"] += amt
         elif d == "COMPENSATED":
             summary["compensated"] += 1
         elif d in {"AGENT_QUARANTINED", "FLEET_QUARANTINED", "AGENT_RELEASED"}:
@@ -318,7 +328,10 @@ def generate_pdf_report(output_path: str) -> str:
         ["Blocked by Kill-Switch", str(s["blocked_by_killswitch"])],
         ["Escalated to Human (HITL)", str(s["hitl_escalations"])],
         ["Emergency Kill-Switch Events", str(s["kill_switch_events"])],
-        ["Total Spend Evaluated", f"${s['total_spend_evaluated']:.2f}"],
+        ["Total Money Requested", f"${s['total_money_requested']:.2f}"],
+        ["Total Money Approved", f"${s['total_money_approved']:.2f}"],
+        ["Total Money Denied", f"${s['total_money_denied']:.2f}"],
+        ["Total Money Escalated", f"${s['total_money_escalated']:.2f}"],
     ]
     summary_table = Table(summary_data, colWidths=[12*cm, 4*cm])
     summary_table.setStyle(TableStyle([
