@@ -17,6 +17,7 @@ from kill_switch import (
 from saga_compensator import compensate_and_clear, compensate_fleet
 from telemetry import get_metrics_output
 from report_generator import generate_json_report, generate_pdf_report
+from splunk_forwarder import load_config as splunk_load, update_config as splunk_update, test_connection as splunk_test
 import os
 import requests as http_requests
 
@@ -604,6 +605,53 @@ async def demo_chat(req: DemoChatRequest):
             "X-Accel-Buffering": "no",
         }
     )
+
+
+# ── Splunk SIEM Integration ──────────────────────────────────────────────────
+
+class SplunkConfigUpdate(BaseModel):
+    enabled: Optional[bool] = None
+    hec_url: Optional[str] = None
+    token: Optional[str] = None
+    index: Optional[str] = None
+    host: Optional[str] = None
+    verify_ssl: Optional[bool] = None
+
+@app.get("/api/v1/splunk/config")
+async def get_splunk_config():
+    """
+    Returns the current Splunk HEC configuration.
+    Token is masked for security.
+    """
+    cfg = splunk_load()
+    # Mask token after first 4 chars
+    token = cfg.get("token", "")
+    if token and token != "YOUR-SPLUNK-HEC-TOKEN" and len(token) > 4:
+        cfg["token"] = token[:4] + "*" * (len(token) - 4)
+    return cfg
+
+@app.post("/api/v1/splunk/config")
+async def update_splunk_config(req: SplunkConfigUpdate):
+    """
+    Updates Splunk HEC configuration. Persisted to disk so
+    it survives service restarts.
+    """
+    updates = {k: v for k, v in req.dict().items() if v is not None}
+    if not updates:
+        raise HTTPException(status_code=400, detail="No fields provided to update.")
+    new_cfg = splunk_update(updates)
+    enabled = new_cfg.get("enabled", False)
+    print(f"[SPLUNK] Config updated | enabled={enabled}")
+    return {"status": "updated", "enabled": enabled}
+
+@app.post("/api/v1/splunk/test")
+async def test_splunk_connection():
+    """
+    Sends a test event to Splunk HEC to validate connectivity.
+    Returns { success: bool, message: str }
+    """
+    result = splunk_test()
+    return result
 
 
 if __name__ == "__main__":

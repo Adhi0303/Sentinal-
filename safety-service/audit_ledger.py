@@ -17,6 +17,12 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+# Splunk SIEM forwarder — imported lazily to avoid circular deps
+try:
+    from splunk_forwarder import forward_audit_entry as _splunk_forward
+except Exception:
+    _splunk_forward = None
+
 # Module 7.2 — import telemetry (lazy to avoid circular imports at startup)
 def _update_telemetry(decision: str, agent_id: str, risk_score: int, parameters: dict):
     """Non-blocking telemetry update — silently ignores errors."""
@@ -99,6 +105,12 @@ def append_audit_entry(
     print(f"[AUDIT LEDGER] Entry #{entry_id} written | Decision={decision} | Hash={entry['entry_hash'][:16]}...")
     # Module 7.2: Update Prometheus counters (non-blocking)
     _update_telemetry(decision, agent_id, risk_score, parameters)
+    # Enterprise SIEM: forward to Splunk HEC (non-blocking, best-effort)
+    if _splunk_forward:
+        try:
+            _splunk_forward(entry)
+        except Exception as _e:
+            print(f"[SPLUNK] Forward error (non-fatal): {_e}")
     return entry
 
 

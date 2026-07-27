@@ -94,9 +94,9 @@ export function RiskBar({ score, className }: { score: number | null; className?
   );
 }
 
-export function SectionLabel({ children }: { children: React.ReactNode }) {
+export function SectionLabel({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className="mb-3 flex items-center gap-3">
+    <div className={`mb-3 flex items-center gap-3 ${className ?? ""}`}>
       <span className="section-label">{children}</span>
       <span className="h-px flex-1 bg-hairline" />
     </div>
