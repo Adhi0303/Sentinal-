@@ -16,13 +16,12 @@ export function KpiStrip() {
     refetchInterval: 30_000,
   });
 
-  const guarded = 1200 + entries.length;
+  const guarded = entries.length;
   const threats = entries.filter(
     (e) => e.decision === "DENIED" || e.decision === "BLOCKED_KILLSWITCH",
   ).length;
   const hitl = entries.filter((e) => e.decision === "REQUIRE_HITL").length;
-  // exclude blocked outliers (e.g. $999,999 injection attempts) from the protected total
-  const spend = entries.reduce((s, e) => s + Math.min(e.amount ?? 0, 5000), 0);
+  const spend = entries.reduce((s, e) => s + (e.amount ?? 0), 0);
 
   const cards = [
     { label: "Requests Guarded", value: guarded.toLocaleString(), sub: "+12% vs last hour", seed: 1 },
@@ -30,7 +29,7 @@ export function KpiStrip() {
     { label: "HITL Escalations", value: String(hitl), sub: "Awaiting manager review", seed: 3 },
     {
       label: "Spend Protected",
-      value: `$${Math.round(spend + 145_000).toLocaleString()}`,
+      value: `$${Math.round(spend).toLocaleString()}`,
       sub: "Total value guarded today",
       seed: 4,
     },

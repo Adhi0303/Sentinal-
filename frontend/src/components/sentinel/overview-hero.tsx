@@ -61,8 +61,8 @@ export function OverviewHero() {
     (e) => e.decision === "DENIED" || e.decision === "BLOCKED_KILLSWITCH",
   ).length;
   const hitl = entries.filter((e) => e.decision === "REQUIRE_HITL").length;
-  const guarded = 1200 + total;
-  const spend = entries.reduce((s, e) => s + Math.min(e.amount ?? 0, 5000), 0) + 145_000;
+  const guarded = total;
+  const spend = entries.reduce((s, e) => s + (e.amount ?? 0), 0);
   const safePct = total === 0 ? 100 : Math.round(((total - threats) / total) * 100);
 
   const micro = [
