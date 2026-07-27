@@ -14,8 +14,10 @@ import { Route as AuditRouteImport } from './routes/audit'
 import { Route as DemoRouteImport } from './routes/demo'
 import { Route as FleetRouteImport } from './routes/fleet'
 import { Route as HitlRouteImport } from './routes/hitl'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as PolicyRouteImport } from './routes/policy'
+import { Route as PortalRouteImport } from './routes/portal'
 import { Route as ReportRouteImport } from './routes/report'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -49,6 +51,11 @@ const HitlRoute = HitlRouteImport.update({
   path: '/hitl',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
@@ -57,6 +64,11 @@ const McpRoute = McpRouteImport.update({
 const PolicyRoute = PolicyRouteImport.update({
   id: '/policy',
   path: '/policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalRoute = PortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ReportRoute = ReportRouteImport.update({
@@ -104,8 +116,10 @@ export interface FileRoutesByFullPath {
   '/demo': typeof DemoRoute
   '/fleet': typeof FleetRoute
   '/hitl': typeof HitlRoute
+  '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/policy': typeof PolicyRoute
+  '/portal': typeof PortalRoute
   '/report': typeof ReportRoute
   '/settings': typeof SettingsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -120,8 +134,10 @@ export interface FileRoutesByTo {
   '/demo': typeof DemoRoute
   '/fleet': typeof FleetRoute
   '/hitl': typeof HitlRoute
+  '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/policy': typeof PolicyRoute
+  '/portal': typeof PortalRoute
   '/report': typeof ReportRoute
   '/settings': typeof SettingsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -137,8 +153,10 @@ export interface FileRoutesById {
   '/demo': typeof DemoRoute
   '/fleet': typeof FleetRoute
   '/hitl': typeof HitlRoute
+  '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
   '/policy': typeof PolicyRoute
+  '/portal': typeof PortalRoute
   '/report': typeof ReportRoute
   '/settings': typeof SettingsRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -155,8 +173,10 @@ export interface FileRouteTypes {
     | '/demo'
     | '/fleet'
     | '/hitl'
+    | '/login'
     | '/mcp'
     | '/policy'
+    | '/portal'
     | '/report'
     | '/settings'
     | '/sitemap.xml'
@@ -171,8 +191,10 @@ export interface FileRouteTypes {
     | '/demo'
     | '/fleet'
     | '/hitl'
+    | '/login'
     | '/mcp'
     | '/policy'
+    | '/portal'
     | '/report'
     | '/settings'
     | '/sitemap.xml'
@@ -187,8 +209,10 @@ export interface FileRouteTypes {
     | '/demo'
     | '/fleet'
     | '/hitl'
+    | '/login'
     | '/mcp'
     | '/policy'
+    | '/portal'
     | '/report'
     | '/settings'
     | '/sitemap.xml'
@@ -204,8 +228,10 @@ export interface RootRouteChildren {
   DemoRoute: typeof DemoRoute
   FleetRoute: typeof FleetRoute
   HitlRoute: typeof HitlRoute
+  LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
   PolicyRoute: typeof PolicyRoute
+  PortalRoute: typeof PortalRoute
   ReportRoute: typeof ReportRoute
   SettingsRoute: typeof SettingsRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -252,6 +278,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HitlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mcp': {
       id: '/mcp'
       path: '/mcp'
@@ -264,6 +297,13 @@ declare module '@tanstack/react-router' {
       path: '/policy'
       fullPath: '/policy'
       preLoaderRoute: typeof PolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal': {
+      id: '/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/report': {
@@ -324,8 +364,10 @@ const rootRouteChildren: RootRouteChildren = {
   DemoRoute: DemoRoute,
   FleetRoute: FleetRoute,
   HitlRoute: HitlRoute,
+  LoginRoute: LoginRoute,
   McpRoute: McpRoute,
   PolicyRoute: PolicyRoute,
+  PortalRoute: PortalRoute,
   ReportRoute: ReportRoute,
   SettingsRoute: SettingsRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

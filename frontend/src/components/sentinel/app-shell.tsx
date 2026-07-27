@@ -1,4 +1,4 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
   ClipboardCheck,
@@ -11,18 +11,26 @@ import {
   TerminalSquare,
   Bell,
   Mail,
-  Search,
   ChevronLeft,
   ChevronRight,
+  LogOut,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { fetchFleet, fetchRecent } from "@/lib/sentinel";
+import { getUser, logout, type User } from "@/lib/auth";
 import { Dot } from "./primitives";
 
-const NAV: Array<{ to: string; label: string; icon: typeof Gauge; badge?: boolean }> = [
+// Admin-only navigation
+const ADMIN_NAV: Array<{
+  to: string;
+  label: string;
+  icon: typeof Gauge;
+  badge?: boolean;
+}> = [
   { to: "/", label: "Home", icon: Gauge },
   { to: "/traffic", label: "Live Traffic", icon: Activity },
   { to: "/hitl", label: "HITL Queue", icon: ClipboardCheck, badge: true },
@@ -35,8 +43,25 @@ const NAV: Array<{ to: string; label: string; icon: typeof Gauge; badge?: boolea
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
   const [clock, setClock] = useState("");
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+
+  // Load current user on mount
+  useEffect(() => {
+    const u = getUser();
+    setUser(u);
+
+    // If no user at all, redirect to login (except already on login or portal page)
+    if (!u && pathname !== "/login" && pathname !== "/portal") {
+      navigate({ to: "/login" });
+    }
+    // If demo user lands on an admin route, redirect to portal
+    if (u?.role === "demo" && pathname !== "/portal" && pathname !== "/login") {
+      navigate({ to: "/portal" });
+    }
+  }, [pathname]);
 
   useEffect(() => {
     const tick = () =>
@@ -56,11 +81,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     queryKey: ["fleet"],
     queryFn: fetchFleet,
     refetchInterval: 10_000,
+    enabled: user?.role === "admin",
   });
   const { data: recent = [] } = useQuery({
     queryKey: ["recent", 100],
     queryFn: () => fetchRecent(100),
     refetchInterval: 5000,
+    enabled: user?.role === "admin",
   });
 
   const active = fleet.filter((a) => a.status === "ACTIVE").length;
@@ -75,8 +102,32 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         ? "DEGRADED"
         : "SYSTEM ONLINE";
 
-  const navItem = (item: { to: string; label: string; icon: typeof Gauge; badge?: boolean }) => {
-    const isActive = item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+  const handleLogout = () => {
+    logout();
+    setUser(null);
+    toast.success("You've been signed out.");
+    navigate({ to: "/login" });
+  };
+
+  // ── Login page: render without shell ────────────────────────────────────────
+  if (pathname === "/login") {
+    return <>{children}</>;
+  }
+
+  // ── Demo / portal users: render without sidebar shell ───────────────────────
+  if (user?.role === "demo" || pathname === "/portal") {
+    return <>{children}</>;
+  }
+
+  // ── Nav item renderer ────────────────────────────────────────────────────────
+  const navItem = (item: {
+    to: string;
+    label: string;
+    icon: typeof Gauge;
+    badge?: boolean;
+  }) => {
+    const isActive =
+      item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
     return (
       <Link
         key={item.to}
@@ -99,7 +150,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <item.icon className="size-4 shrink-0" strokeWidth={1.8} />
         {!isCollapsed && <span className="truncate">{item.label}</span>}
         {item.badge && pendingHitl > 0 && !isCollapsed && (
-          <span className="mono ml-auto text-[12px] text-muted-foreground">{pendingHitl}</span>
+          <span className="mono ml-auto text-[12px] text-muted-foreground">
+            {pendingHitl}
+          </span>
         )}
         {item.badge && pendingHitl > 0 && isCollapsed && (
           <span className="absolute top-1 right-2 size-2 rounded-full bg-red-500" />
@@ -108,39 +161,76 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     );
   };
 
+  // ── Admin shell ──────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen flex text-foreground">
       {/* Floating Glass Sidebar */}
-      <aside 
+      <aside
         className={cn(
           "fixed top-6 bottom-6 left-6 z-30 glass rounded-[32px] py-8 flex flex-col transition-all duration-300 ease-in-out overflow-hidden",
-          isCollapsed ? "w-[88px]" : "w-[260px]"
+          isCollapsed ? "w-[88px]" : "w-[260px]",
         )}
       >
-        <div className={cn("flex items-center mb-10", isCollapsed ? "justify-center px-0 flex-col gap-4" : "justify-between px-8")}>
-          <Link to="/" className={cn("flex items-center gap-2.5", isCollapsed && "justify-center")}>
-            {!isCollapsed && <span className="text-[20px] font-medium tracking-tight text-foreground">Sentinel</span>}
+        <div
+          className={cn(
+            "flex items-center mb-10",
+            isCollapsed
+              ? "justify-center px-0 flex-col gap-4"
+              : "justify-between px-8",
+          )}
+        >
+          <Link
+            to="/"
+            className={cn(
+              "flex items-center gap-2.5",
+              isCollapsed && "justify-center",
+            )}
+          >
+            {!isCollapsed && (
+              <span className="text-[20px] font-medium tracking-tight text-foreground">
+                Sentinel
+              </span>
+            )}
           </Link>
-          
-          <button 
-            onClick={() => setIsCollapsed(!isCollapsed)} 
+
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
             className="grid size-8 place-items-center hover:bg-white/40 rounded-full transition-colors text-muted-foreground hover:text-foreground glass-chip"
           >
-            {isCollapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
+            {isCollapsed ? (
+              <ChevronRight className="size-4" />
+            ) : (
+              <ChevronLeft className="size-4" />
+            )}
           </button>
         </div>
 
-        <nav className="flex flex-col gap-1">{NAV.map(navItem)}</nav>
-        
-        <div className={cn("my-6 h-px bg-border/50 transition-all", isCollapsed ? "mx-4" : "mx-8")} />
-        
+        <nav className="flex flex-col gap-1">{ADMIN_NAV.map(navItem)}</nav>
+
+        <div
+          className={cn(
+            "my-6 h-px bg-border/50 transition-all",
+            isCollapsed ? "mx-4" : "mx-8",
+          )}
+        />
+
         <nav className="flex flex-col gap-1">
           {navItem({ to: "/settings", label: "Settings", icon: SettingsIcon })}
         </nav>
 
         <div className={cn("mt-auto", isCollapsed ? "px-4" : "px-8")}>
-          <div className={cn("glass-chip rounded-[16px] flex flex-col gap-2", isCollapsed ? "p-3 items-center" : "p-4")}>
-            <div className={cn("flex items-center gap-2 font-medium", isCollapsed ? "justify-center" : "text-[13px]")}>
+          <div
+            className={cn(
+              "glass-chip rounded-[16px] flex flex-col gap-2",
+              isCollapsed ? "p-3 items-center" : "p-4",
+            )}
+          >
+            <div
+              className={cn(
+                "flex items-center gap-2 font-medium",
+                isCollapsed ? "justify-center" : "text-[13px]",
+              )}
+            >
               <Dot token={systemToken} />
               {!isCollapsed && systemLabel}
             </div>
@@ -156,11 +246,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main Content Area */}
-      <main className={cn("flex-1 min-w-0 transition-all duration-300 ease-in-out", isCollapsed ? "pl-[124px]" : "pl-[296px]")}>
-        {/* Top Header Area - No longer sticky so it scrolls away naturally */}
+      <main
+        className={cn(
+          "flex-1 min-w-0 transition-all duration-300 ease-in-out",
+          isCollapsed ? "pl-[124px]" : "pl-[296px]",
+        )}
+      >
         <header className="relative z-20 flex h-24 items-center px-10">
           <div className="flex-1" />
-          
+
           {/* Top Right Controls */}
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 mr-4">
@@ -170,24 +264,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <button className="grid size-10 place-items-center rounded-full glass hover-lift text-muted-foreground hover:text-foreground">
                 <Bell className="size-4" strokeWidth={1.8} />
               </button>
-              <button className="grid size-10 place-items-center rounded-full glass hover-lift text-muted-foreground hover:text-foreground">
-                <SettingsIcon className="size-4" strokeWidth={1.8} />
+              <button
+                onClick={handleLogout}
+                title="Sign out"
+                className="grid size-10 place-items-center rounded-full glass hover-lift text-muted-foreground hover:text-red-400 transition-colors"
+              >
+                <LogOut className="size-4" strokeWidth={1.8} />
               </button>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <div className="text-right">
-                <div className="text-[14px] font-medium leading-none">Security Admin</div>
-                <div className="text-[12px] text-muted-foreground mt-1">{clock}</div>
+                <div className="text-[14px] font-medium leading-none">
+                  {user?.displayName ?? "Security Admin"}
+                </div>
+                <div className="text-[12px] text-muted-foreground mt-1">
+                  {clock}
+                </div>
               </div>
               <div className="grid size-11 place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-[14px] font-medium text-white shadow-md">
-                SA
+                {user?.initials ?? "SA"}
               </div>
             </div>
           </div>
         </header>
 
-        <div key={pathname} className="animate-fade-in px-10 pb-10">{children}</div>
+        <div key={pathname} className="animate-fade-in px-10 pb-10">
+          {children}
+        </div>
       </main>
     </div>
   );

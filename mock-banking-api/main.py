@@ -109,6 +109,27 @@ accounts = {
             {"id": "txn_b102", "date": "2026-07-18", "amount":  -200.0,  "type": "LATE_FEE", "description": "Late payment fee"},
         ]
     },
+    # Demo user 2 — Tara Williams (tara05)
+    "acc_tara": {
+        "name": "Tara Williams",
+        "type": "CONSUMER",
+        "status": "ACTIVE",
+        "balance": 3_450.75,
+        "credit_limit": 8_000.0,
+        "years_as_customer": 3,
+        "ytd_fees_waived": 0.0,
+        "credit_score": 780,
+        "transactions": [
+            {"id": "txn_tw001", "date": "2026-07-01", "amount": -1_200.00, "type": "PURCHASE",  "description": "Online shopping — Amazon"},
+            {"id": "txn_tw002", "date": "2026-07-05", "amount": -85.50,   "type": "PURCHASE",  "description": "Grocery store — Whole Foods"},
+            {"id": "txn_tw003", "date": "2026-07-08", "amount":  2_500.00, "type": "PAYMENT",   "description": "Monthly payment received"},
+            {"id": "txn_tw004", "date": "2026-07-12", "amount": -350.00,   "type": "PURCHASE",  "description": "Restaurant — The Capital Grille"},
+            {"id": "txn_tw005", "date": "2026-07-15", "amount": -29.99,    "type": "LATE_FEE",  "description": "Late payment fee — July"},
+            {"id": "txn_tw006", "date": "2026-07-18", "amount": -620.00,   "type": "PURCHASE",  "description": "Delta Airlines — flight booking"},
+            {"id": "txn_tw007", "date": "2026-07-21", "amount":  1_000.00, "type": "PAYMENT",   "description": "Partial payment received"},
+            {"id": "txn_tw008", "date": "2026-07-24", "amount": -45.25,    "type": "PURCHASE",  "description": "Spotify + Netflix subscriptions"},
+        ]
+    },
 }
 
 # 2PC Reserve Ledger — tracks locked/reserved balances (Module 5.3)
