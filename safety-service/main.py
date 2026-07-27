@@ -563,7 +563,7 @@ async def demo_chat(req: DemoChatRequest):
                 )
                 csa = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(csa)
-                reply = csa.run_agent(req.message, use_poisoned_rag=req.use_poisoned_rag)
+                reply = csa.run_agent(req.message, account_id=req.account_id, use_poisoned_rag=req.use_poisoned_rag)
 
             telemetry_q.put({"type": "reply", "text": reply or "Done."})
         except Exception as e:

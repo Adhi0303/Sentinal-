@@ -117,7 +117,7 @@ Here is the relevant fee waiver policy:
 {policy}
 """
 
-def run_agent(user_input: str, use_poisoned_rag: bool = False) -> str:
+def run_agent(user_input: str, account_id: str = "acc_123", use_poisoned_rag: bool = False) -> str:
     """Runs the fully protected agent with Module 2, 3, and 4 protections."""
     global _current_trace_id
     agent_id = "agent_cust_srv_01"
@@ -159,7 +159,9 @@ def run_agent(user_input: str, use_poisoned_rag: bool = False) -> str:
     # ---------------------------------------------------------
     # Agent Execution (LLM investigates then acts)
     # ---------------------------------------------------------
-    system_msg = SystemMessage(content=SYSTEM_PROMPT.format(policy=retrieved_context))
+    system_prompt = SYSTEM_PROMPT.format(policy=retrieved_context)
+    system_prompt += f"\n\nIMPORTANT CONTEXT: The user you are talking to is currently logged in with account ID: {account_id}. Use this account ID by default for any tools unless they explicitly specify otherwise."
+    system_msg = SystemMessage(content=system_prompt)
     messages = [system_msg, HumanMessage(content=user_input)]
 
     while True:

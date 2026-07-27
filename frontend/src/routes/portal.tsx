@@ -171,7 +171,7 @@ function CustomerPortal() {
       const resp = await fetch(`${apiBase}/api/v1/demo/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, use_poisoned_rag: false }),
+        body: JSON.stringify({ message: text, use_poisoned_rag: false, account_id: user.accountId }),
       });
 
       if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
