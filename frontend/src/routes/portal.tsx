@@ -12,7 +12,7 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getApiBase } from "@/lib/sentinel";
+import { getApiBase, getBankingApiBase } from "@/lib/sentinel";
 import { getUser, logout } from "@/lib/auth";
 import { toast } from "sonner";
 
@@ -126,9 +126,10 @@ function CustomerPortal() {
     if (!user?.accountId) return;
     const fetchData = async () => {
       try {
+        const bankBase = getBankingApiBase();
         const [accResp, txResp] = await Promise.all([
-          fetch(`${apiBase.replace("8001", "8000")}/api/v1/accounts/${user.accountId}`),
-          fetch(`${apiBase.replace("8001", "8000")}/api/v1/accounts/${user.accountId}/transactions`),
+          fetch(`${bankBase}/api/v1/accounts/${user.accountId}`),
+          fetch(`${bankBase}/api/v1/accounts/${user.accountId}/transactions`),
         ]);
         if (accResp.ok) setAccount(await accResp.json());
         if (txResp.ok) {

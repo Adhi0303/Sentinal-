@@ -77,6 +77,7 @@ const AGENT_NAMES: Record<string, string> = {
 
 export const API_BASE_KEY = "sentinel.apiBase";
 export const DEFAULT_API_BASE = "http://localhost:8001";
+export const DEFAULT_BANKING_API_BASE = "http://localhost:8000";
 
 export function getApiBase(): string {
   if (typeof window === "undefined") return DEFAULT_API_BASE;
@@ -86,6 +87,12 @@ export function getApiBase(): string {
 export function setApiBase(base: string) {
   if (typeof window !== "undefined")
     window.localStorage.setItem(API_BASE_KEY, base);
+}
+
+/** Returns the URL base for the Mock Banking API (port 8000). */
+export function getBankingApiBase(): string {
+  // Safety API lives on 8001, Banking API on 8000
+  return getApiBase().replace(":8001", ":8000");
 }
 
 // Generic fetch helper — returns null on any failure (timeout, non-200, etc.)
