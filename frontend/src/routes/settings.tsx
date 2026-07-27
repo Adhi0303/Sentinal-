@@ -93,15 +93,7 @@ function SettingsPage() {
         </div>
       </section>
 
-      <section className="panel p-5">
-        <SectionLabel>About</SectionLabel>
-        <dl className="mono space-y-1 text-[12.5px]">
-          <Row k="Version" v="Sentinel Gateway v1.0.0" />
-          <Row k="Modules implemented" v="2, 3, 4, 5.1, 5.2, 5.3 (2PC), 6, 7" />
-          <Row k="Built for" v="American Express AI Safety Hackathon" />
-          <Row k="Backend" v="FastAPI + Redis + OPA (Rego)" />
-        </dl>
-      </section>
+
     </div>
   );
 }

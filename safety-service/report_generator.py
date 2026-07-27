@@ -212,14 +212,8 @@ def generate_json_report() -> Dict[str, Any]:
             summary["kill_switch_events"] += 1
 
         translated.append({
-            "entry_id":    entry.get("entry_id"),
-            "timestamp":   entry.get("timestamp"),
-            "agent_id":    entry.get("agent_id"),
-            "decision":    d,
-            "risk_score":  entry.get("risk_score", 0),
+            **entry,
             "plain_english": _plain_english(entry),
-            "entry_hash":  entry.get("entry_hash", ""),
-            "prev_hash":   entry.get("prev_hash", ""),
         })
 
     chain_tip = entries[-1]["entry_hash"] if entries else "N/A"

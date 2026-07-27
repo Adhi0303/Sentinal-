@@ -214,7 +214,7 @@ async def audit_log_entry(req: AuditEntryRequest):
     return {"status": "LOGGED", "entry_id": entry["entry_id"], "entry_hash": entry["entry_hash"]}
 
 @app.get("/api/v1/audit/recent")
-async def audit_get_recent(limit: int = Query(default=20, le=100)):
+async def audit_get_recent(limit: int = Query(default=20, le=500)):
     """
     Module 5: Returns the last N audit entries for the dashboard feed.
     """
@@ -483,6 +483,116 @@ async def get_active_reserves():
             "reservations": [],
             "error": f"Could not fetch reservations: {e}",
         }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DEMO SANDBOX: Real Agent Chat Endpoint with SSE Telemetry Streaming
+# ─────────────────────────────────────────────────────────────────────────────
+
+import queue
+import threading
+import sys as _sys
+from fastapi.responses import StreamingResponse
+import json as _json
+
+class DemoChatRequest(BaseModel):
+    message: str
+    account_id: Optional[str] = "acc_123"
+    use_poisoned_rag: Optional[bool] = False
+
+@app.post("/api/v1/demo/chat")
+async def demo_chat(req: DemoChatRequest):
+    """
+    Demo Sandbox: Runs the real Customer Service Agent and streams live
+    Sentinel gate-by-gate telemetry back to the UI as Server-Sent Events.
+    Each SSE event is either a 'log' line or the final 'reply'.
+    """
+    telemetry_q: queue.Queue = queue.Queue()
+
+    # Patch sys.path so the agent can find its deps
+    agents_dir = os.path.join(os.path.dirname(__file__), '..', 'agents-fleet')
+    if agents_dir not in _sys.path:
+        _sys.path.insert(0, agents_dir)
+
+    def _run_agent():
+        """Run the real agent in a background thread, capturing all print output."""
+        import io
+        import contextlib
+
+        # Intercept print statements from the agent + SDK to build telemetry
+        class TelemetryCapture(io.StringIO):
+            def write(self, s: str):
+                stripped = s.strip()
+                if stripped:
+                    # Classify the log line for the frontend coloriser
+                    token = "default"
+                    sl = stripped.lower()
+                    if "blocked" in sl or "denied" in sl or "tampered" in sl or "injection" in sl:
+                        token = "deny"
+                    elif "allowed" in sl or "safe" in sl or "passed" in sl or "intact" in sl or "approved" in sl or "complete" in sl or "committed" in sl:
+                        token = "allow"
+                    elif "hitl" in sl or "escalat" in sl or "require_hitl" in sl:
+                        token = "hitl"
+                    elif "duplicate" in sl or "idempotency" in sl or "cached" in sl:
+                        token = "duplicate"
+                    telemetry_q.put({"type": "log", "text": stripped, "token": token})
+                return super().write(s)
+
+        capture = TelemetryCapture()
+        try:
+            # Redirect stdout/stderr so all agent print() calls become telemetry events
+            with contextlib.redirect_stdout(capture), contextlib.redirect_stderr(capture):
+                import importlib
+                import importlib.util
+                # Load agent fresh each call so module-level globals reset
+                spec = importlib.util.spec_from_file_location(
+                    "customer_service_agent",
+                    os.path.join(agents_dir, "customer_service_agent.py")
+                )
+                csa = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(csa)
+                reply = csa.run_agent(req.message, use_poisoned_rag=req.use_poisoned_rag)
+
+            telemetry_q.put({"type": "reply", "text": reply or "Done."})
+        except Exception as e:
+            telemetry_q.put({"type": "log", "text": f"[ERROR] Agent execution failed: {e}", "token": "deny"})
+            telemetry_q.put({"type": "reply", "text": "I'm sorry, an internal error occurred. Please check that all backend services are running."})
+        finally:
+            telemetry_q.put(None)  # Sentinel: stream is done
+
+    # Start agent in background thread
+    t = threading.Thread(target=_run_agent, daemon=True)
+    t.start()
+
+    async def event_stream():
+        import asyncio
+        start_time = asyncio.get_event_loop().time()
+        while True:
+            try:
+                item = telemetry_q.get_nowait()
+            except queue.Empty:
+                if asyncio.get_event_loop().time() - start_time > 60:
+                    yield f"data: {_json.dumps({'type': 'error', 'text': 'Agent timed out'})}\n\n"
+                    break
+                await asyncio.sleep(0.1)
+                continue
+            
+            # Reset timeout on successful read
+            start_time = asyncio.get_event_loop().time()
+            
+            if item is None:
+                yield f"data: {_json.dumps({'type': 'done'})}\n\n"
+                break
+            yield f"data: {_json.dumps(item)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        }
+    )
 
 
 if __name__ == "__main__":

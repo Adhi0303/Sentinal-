@@ -95,7 +95,7 @@ function HitlPage() {
               >
                 <StatusPill token="hitl"> Awaiting Review</StatusPill>
                 <p className="mt-2 text-[15px] font-bold text-brand">
-                  {e.action_type.replace(/_/g, " ")} — {fmtMoney(e.amount)}
+                  {(e.action_type || "UNKNOWN_ACTION").replace(/_/g, " ")} — {fmtMoney(e.amount)}
                 </p>
                 <p className="mono mt-0.5 text-[11px] text-muted-foreground">
                   {e.account_id} • {e.agent_id}
@@ -119,7 +119,7 @@ function HitlPage() {
         {active && (
           <section className="panel h-fit p-5">
             <h2 className="text-[16px] font-normal">
-              {active.action_type.replace(/_/g, " ")} Request — {fmtMoney(active.amount)}
+              {(active.action_type || "UNKNOWN_ACTION").replace(/_/g, " ")} Request — {fmtMoney(active.amount)}
             </h2>
             <p className="mono mt-1 text-[11.5px] text-muted-foreground">
               {active.agent_id} • Account: {active.account_id} • {fmtTime(active.timestamp)} UTC
@@ -186,7 +186,7 @@ function HitlPage() {
         <Modal onClose={() => setConfirming(false)} title="Confirm approval">
           <p className="text-[13px] text-muted-foreground">
             Are you sure? This will execute a {fmtMoney(active.amount)}{" "}
-            {active.action_type.replace(/_/g, " ").toLowerCase()} on {active.account_id} and record{" "}
+            {(active.action_type || "UNKNOWN_ACTION").replace(/_/g, " ").toLowerCase()} on {active.account_id} and record{" "}
             <span className="mono">APPROVED_BY_HUMAN</span> in the immutable ledger.
           </p>
           <div className="mt-5 flex justify-end gap-2">

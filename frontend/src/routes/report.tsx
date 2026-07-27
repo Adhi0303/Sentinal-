@@ -91,11 +91,11 @@ function ReportPage() {
             <ol className="space-y-3">
               {(data?.log ?? []).slice(0, 30).map((e) => {
                 const band = riskBand(e.risk_score);
-                const meta = DECISION_META[e.decision];
+                const meta = DECISION_META[e.decision] || { label: e.decision, icon: "", token: "info" };
                 return (
                   <li key={e.entry_id} className="mono text-[12px] leading-relaxed">
                     <p>
-                      [{e.entry_id}] {meta.icon} {e.action_type.replace(/_/g, " ")}{" "}
+                      [{e.entry_id}] {meta.icon} {(e.action_type || "UNKNOWN_ACTION").replace(/_/g, " ")}{" "}
                       {fmtMoney(e.amount)} {meta.label} at {fmtTime(e.timestamp)} UTC.
                     </p>
                     <p className="text-muted-foreground">

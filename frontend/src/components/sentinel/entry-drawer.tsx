@@ -33,7 +33,7 @@ export function EntryDrawer({
         </div>
 
         <div className="px-5 py-5">
-          <h2 className="text-[16px] font-normal text-brand">{entry.action_type.replace(/_/g, " ")}</h2>
+          <h2 className="text-[16px] font-normal text-brand">{(entry.action_type || "UNKNOWN_ACTION").replace(/_/g, " ")}</h2>
           <p className="mono mt-1 text-xs text-muted-foreground">
             {fmtMoney(entry.amount)} • {entry.account_id} • {fmtTime(entry.timestamp)} UTC
           </p>

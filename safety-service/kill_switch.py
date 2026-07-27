@@ -31,6 +31,9 @@ KNOWN_FLEET_AGENTS = [
     "agent_trading_01",
     "agent_fraud_monitor_01",
     "agent_credit_ops_01",
+    "agent_treasury_001",
+    "agent_procurement_001",
+    "agent_underwriting_001"
 ]
 
 

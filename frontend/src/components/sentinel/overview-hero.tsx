@@ -19,10 +19,10 @@ function Arc({ pct }: { pct: number }) {
 
   return (
     <svg viewBox="0 0 220 128" className="h-[128px] w-[220px]">
-      <path d={bgPath} fill="none" stroke="var(--border)" strokeWidth="1.5" strokeDasharray="3 5" />
-      <path d={fgPath} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" />
-      <circle cx={x} cy={y} r="4" fill="var(--accent)" />
-      <circle cx={cx - r} cy={cy} r="3" fill="var(--accent)" opacity="0.45" />
+      <path d={bgPath} fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeDasharray="4 6" />
+      <path d={fgPath} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" />
+      <circle cx={x} cy={y} r="5" fill="var(--accent)" stroke="white" strokeWidth="2" />
+      <circle cx={cx - r} cy={cy} r="4" fill="var(--accent)" opacity="0.45" />
     </svg>
   );
 }
@@ -32,14 +32,14 @@ function Spark({ seed }: { seed: number }) {
     v: 40 + Math.round(24 * Math.sin(i / 1.9 + seed) + ((i * seed) % 9)),
   }));
   return (
-    <div className="mt-2 h-6 w-full opacity-70">
+    <div className="mt-4 h-8 w-full opacity-60 mix-blend-multiply">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data}>
           <Line
             type="monotone"
             dataKey="v"
             stroke="var(--accent)"
-            strokeWidth={1}
+            strokeWidth={1.5}
             dot={false}
             isAnimationActive={false}
           />
@@ -79,54 +79,57 @@ export function OverviewHero() {
     .split(".");
 
   return (
-    <section className="panel relative overflow-hidden px-8 py-7">
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_auto]">
+    <section className="panel relative overflow-hidden px-10 py-10">
+      <div className="grid gap-12 lg:grid-cols-[minmax(0,1fr)_auto]">
         <div className="min-w-0">
-          <p className="text-[11px] tracking-[0.04em] text-muted-foreground">
-            Dashboard <span className="px-1.5 opacity-50">›</span> Overview
+          <p className="text-[13px] tracking-wide text-muted-foreground mb-4">
+            Dashboard <span className="px-2 opacity-40">›</span> Sentinel System
           </p>
-          <h1 className="mt-2 text-[42px] leading-[1.05] font-light tracking-[-0.02em] text-foreground">
-            Sentinel Overview
+          <h1 className="text-[46px] leading-[1.05] font-light tracking-[-0.03em] text-foreground">
+            Overview
           </h1>
 
-          <p className="mt-6 text-[11px] tracking-[0.04em] text-muted-foreground">
-            Total value guarded today
-          </p>
-          <p className="mt-1 flex items-baseline gap-1 text-foreground">
-            <span className="text-[22px] font-light">$</span>
-            <span className="text-[46px] leading-none font-light tracking-[-0.02em]">
-              {Number(dollars).toLocaleString()}
-            </span>
-            <span className="text-[18px] font-light text-muted-foreground">.{cents}</span>
-          </p>
-          <p className="mt-3 inline-flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <span className="inline-block size-1.5 rounded-full bg-allow" />
-            {total} decisions intercepted · live simulation
-          </p>
+          <div className="mt-12 flex gap-4">
+            <div className="glass-chip rounded-[16px] px-5 py-3 flex items-center gap-4">
+              <div className="text-[12px] text-muted-foreground uppercase tracking-wider">Total Value Guarded</div>
+              <div className="flex items-baseline gap-1 text-primary">
+                <span className="text-[20px] font-medium">$</span>
+                <span className="text-[28px] leading-none font-medium">{Number(dollars).toLocaleString()}</span>
+                <span className="text-[16px] font-medium opacity-70">.{cents}</span>
+              </div>
+            </div>
+            
+            <div className="glass-chip rounded-[16px] px-5 py-3 flex items-center gap-3">
+              <span className="inline-block size-2 rounded-full bg-allow shadow-[0_0_8px_rgba(87,141,114,0.6)]" />
+              <div className="text-[13px] font-medium">
+                {total} live decisions intercepted
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="flex flex-col items-center justify-center lg:w-[260px]">
+        <div className="flex flex-col items-center justify-center lg:w-[320px] glass rounded-[24px] p-6 shadow-sm">
           <Arc pct={safePct} />
-          <p className="-mt-10 text-[34px] font-light tracking-[-0.02em] text-foreground">
+          <p className="-mt-10 text-[38px] font-light tracking-[-0.02em] text-primary">
             {safePct}%
           </p>
-          <p className="mt-1 text-center text-[12px] text-muted-foreground">
+          <p className="mt-1 text-center text-[13px] text-muted-foreground">
             of agent actions cleared policy
           </p>
           <a
             href="/policy"
-            className="mt-3 inline-flex items-center gap-1 text-[12px] text-link hover:opacity-80"
+            className="mt-4 flex items-center gap-1.5 text-[13px] font-medium text-primary hover:text-accent hover-lift bg-white/40 px-4 py-2 rounded-full transition-colors"
           >
-            View policy <ArrowUpRight className="size-3.5" strokeWidth={1.6} />
+            View policy <ArrowUpRight className="size-4" strokeWidth={2} />
           </a>
         </div>
       </div>
 
-      <div className="mt-8 grid gap-6 border-t border-hairline pt-6 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-12 grid gap-6 border-t border-border/50 pt-8 sm:grid-cols-2 xl:grid-cols-4">
         {micro.map((m) => (
-          <div key={m.label}>
-            <p className="text-[11px] tracking-[0.04em] text-muted-foreground">{m.label}</p>
-            <p className="mt-1 text-[28px] leading-none font-light tracking-[-0.01em] text-foreground">
+          <div key={m.label} className="glass rounded-[20px] p-5 hover-lift">
+            <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground mb-2">{m.label}</p>
+            <p className="text-[32px] leading-none font-light tracking-[-0.02em] text-foreground">
               {m.value}
             </p>
             <Spark seed={m.seed} />

@@ -5,21 +5,20 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Sentinel Gateway — Enterprise Calm Computing design system.
- * Stripe Dashboard / Linear / Datadog. Warm-white canvas, white floating
- * sheets, hairline borders, one muted slate-blue accent. No glass, no glow.
+ * Sentinel Gateway — Wirely-inspired Glassmorphism design system.
+ * Minimalist, neat, modern, and highly translucent.
  */
 
 @theme inline {
-  --radius-sm: 8px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 16px;
-  --radius-2xl: 20px;
-  --radius-3xl: 22px;
-  --radius-4xl: 24px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-2xl: 28px;
+  --radius-3xl: 32px;
+  --radius-4xl: 36px;
 
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+  --font-sans: "Outfit", -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
   --color-background: var(--background);
@@ -65,8 +64,8 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
-  --shadow-card: 0 1px 2px rgb(36 52 78 / 0.03), 0 1px 3px rgb(36 52 78 / 0.025);
-  --shadow-elevated: 0 4px 14px rgb(36 52 78 / 0.05), 0 1px 3px rgb(36 52 78 / 0.03);
+  --shadow-card: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+  --shadow-elevated: 0 12px 48px 0 rgba(31, 38, 135, 0.1);
   --shadow-modal: 0 20px 44px rgb(36 52 78 / 0.11), 0 2px 8px rgb(36 52 78 / 0.05);
 
   --animate-slide-in: slide-in 0.24s cubic-bezier(0.22, 1, 0.36, 1);
@@ -74,58 +73,57 @@
 }
 
 :root {
-  --radius: 20px;
+  --radius: 24px;
 
-  /* Enterprise calm palette */
-  --background: #f8fafc;
-  --foreground: #1f2937;
+  /* Glassmorphism palette */
+  --background: #eef2f6; /* Will be overridden by body mesh */
+  --foreground: #1e293b;
 
-  --card: #ffffff;
-  --card-foreground: #1f2937;
-  --surface-elevated: #ffffff;
-  --surface-subtle: #f2f6fb;
-  --popover: #ffffff;
-  --popover-foreground: #1f2937;
+  --card: rgba(255, 255, 255, 0.55);
+  --card-foreground: #1e293b;
+  --surface-elevated: rgba(255, 255, 255, 0.75);
+  --surface-subtle: rgba(255, 255, 255, 0.3);
+  --popover: rgba(255, 255, 255, 0.85);
+  --popover-foreground: #1e293b;
 
-  --primary: #5e7fa8;
+  --primary: #4F6FA3; /* Steel blue from prompt */
   --primary-foreground: #ffffff;
-  --brand: #24344e;
+  --brand: #2b3b55;
   --brand-foreground: #ffffff;
-  --link: #5e7fa8;
+  --link: #4F6FA3;
 
-  --secondary: #f2f6fb;
-  --secondary-foreground: #24344e;
-  --muted: #f2f6fb;
-  --muted-foreground: #6b7c93;
-  --accent: #5e7fa8;
+  --secondary: rgba(255, 255, 255, 0.4);
+  --secondary-foreground: #2b3b55;
+  --muted: rgba(255, 255, 255, 0.4);
+  --muted-foreground: #64748b;
+  --accent: #4F6FA3;
   --accent-foreground: #ffffff;
-  --accent-light: rgb(94 127 168 / 0.08);
+  --accent-light: rgba(79, 111, 163, 0.15);
   --accent-steel: #7089ac;
   --destructive: #b06266;
   --destructive-foreground: #ffffff;
 
-  --border: #e4eaf2;
-  --border-hairline: #edf1f7;
-  --input: #ffffff;
-  --ring: #5e7fa8;
+  --border: rgba(255, 255, 255, 0.5);
+  --border-hairline: rgba(255, 255, 255, 0.3);
+  --input: rgba(255, 255, 255, 0.5);
+  --ring: #4F6FA3;
 
-  --panel-dark-bg: #24344e;
-  --text-on-dark: rgb(255 255 255 / 0.94);
-  --text-on-dark-sub: rgb(255 255 255 / 0.6);
+  --panel-dark-bg: linear-gradient(135deg, #4f6480 0%, #2f4362 100%);
+  --text-on-dark: rgb(255 255 255 / 0.96);
+  --text-on-dark-sub: rgb(255 255 255 / 0.7);
 
   --allow: #578d72;
   --deny: #b06266;
   --hitl: #ac8149;
   --kill: #7d6795;
-  --duplicate: #5e7fa8;
-  --info: #6b7c93;
+  --duplicate: #4F6FA3;
+  --info: #64748b;
 
-  --chart-1: #5e7fa8;
+  --chart-1: #4F6FA3;
   --chart-2: #578d72;
   --chart-3: #ac8149;
   --chart-4: #b06266;
   --chart-5: #7d6795;
-
 }
 
 @layer base {
@@ -134,15 +132,39 @@
   }
 
   body {
-    background-color: var(--background);
-    background-image: none;
+    /* Rich, blurred photographic background for true glassmorphism */
+    background-color: #e2e8f0;
+    background-image: url('/glass_bg.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
     color: var(--foreground);
     font-family: var(--font-sans);
     font-weight: 400;
     -webkit-font-smoothing: antialiased;
   }
 
-  /* No weight above 500 anywhere. */
+  /* Global minimalist scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.3);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+  }
+
+  /* No weight above 500 anywhere to maintain minimalism */
   h1,
   h2,
   h3,
@@ -152,7 +174,7 @@
   strong,
   b {
     font-weight: 500;
-    letter-spacing: -0.011em;
+    letter-spacing: -0.015em;
     color: var(--foreground);
   }
 
@@ -186,7 +208,6 @@
   }
 }
 
-/* legacy names kept so older components stay static instead of animating */
 @keyframes pulse-dot {
   0%,
   100% {
@@ -206,43 +227,48 @@
   }
 }
 
-/* Floating white sheet — the core surface of the product. */
+/* Glassmorphism Panels */
 @utility panel {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 28px;
   box-shadow: var(--shadow-card);
 }
 
 @utility panel-dark {
   background: var(--panel-dark-bg);
-  border: 1px solid rgb(255 255 255 / 0.07);
-  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 28px;
   box-shadow: var(--shadow-elevated);
   color: var(--text-on-dark);
 }
 
 @utility glass {
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
 }
 
 @utility glass-strong {
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   box-shadow: var(--shadow-elevated);
 }
 
-/* Small controls: buttons, selects, inputs, chips. */
+/* Small controls: chips. */
 @utility glass-chip {
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   color: var(--foreground);
-  transition:
-    background 160ms cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 160ms ease;
+  transition: all 160ms ease;
   &:hover {
-    background: var(--surface-subtle);
+    background: rgba(255, 255, 255, 0.65);
   }
 }
 
@@ -251,7 +277,8 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  background: var(--surface-subtle);
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(8px);
 }
 
 @utility hover-lift {
@@ -259,7 +286,7 @@
     transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 200ms cubic-bezier(0.22, 1, 0.36, 1);
   &:hover {
-    transform: translateY(-1px);
+    transform: translateY(-2px);
     box-shadow: var(--shadow-elevated);
   }
 }
@@ -271,71 +298,70 @@
 }
 
 @utility metric-lg {
-  font-size: 42px;
+  font-size: 46px;
   font-weight: 300;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.03em;
   line-height: 1.05;
 }
 
 @utility metric-md {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 300;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.02em;
   line-height: 1.1;
 }
 
 @utility section-label {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 400;
   color: var(--muted-foreground);
 }
 
+/* Fully rounded modern buttons */
 @utility btn-pill {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 38px;
-  padding: 0 18px;
-  border-radius: 10px;
-  font-size: 13px;
-  font-weight: 500;
-  transition:
-    background 160ms ease,
-    box-shadow 160ms ease,
-    transform 120ms ease;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 400;
+  transition: all 160ms ease;
   &:active {
-    transform: translateY(0.5px);
+    transform: scale(0.98);
   }
 }
 
 @utility btn-primary {
   background: var(--accent);
   color: #fff;
-  border: 1px solid var(--accent);
-  box-shadow: var(--shadow-card);
+  border: none;
+  box-shadow: 0 4px 12px rgba(79, 111, 163, 0.3);
   &:hover {
-    background: #53718f;
+    background: #425e8a;
+    box-shadow: 0 6px 16px rgba(79, 111, 163, 0.4);
   }
 }
 
 @utility btn-secondary {
-  background: var(--card);
+  background: rgba(255,255,255,0.4);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   color: var(--foreground);
   &:hover {
-    background: var(--surface-subtle);
+    background: rgba(255,255,255,0.7);
   }
 }
 
 @utility btn-destructive {
-  background: var(--card);
+  background: rgba(255,255,255,0.4);
+  backdrop-filter: blur(12px);
   border: 1px solid color-mix(in oklab, var(--deny) 40%, transparent);
   color: var(--deny);
   &:hover {
-    background: color-mix(in oklab, var(--deny) 8%, white);
+    background: rgba(255,255,255,0.8);
   }
 }
 
@@ -344,23 +370,23 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 22px;
-  padding: 0 9px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
 @utility row-hover {
-  transition: background 140ms ease;
+  transition: all 140ms ease;
   &:hover {
-    background: var(--surface-subtle);
+    background: rgba(255,255,255,0.4);
   }
 }
 
 @utility scroll-slim {
   scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-color: rgba(0,0,0,0.1) transparent;
 }

@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { fetchRecent, fmtMoney, fmtTime, type AuditEntry, type Decision } from "@/lib/sentinel";
 import { cn } from "@/lib/utils";
-import { DecisionBadge, PulseDot, RiskBar } from "./primitives";
+import { DecisionBadge, RiskBar } from "./primitives";
 
 const FILTERS: Array<{ label: string; value: Decision | "ALL" }> = [
   { label: "All", value: "ALL" },
@@ -24,22 +24,22 @@ export function LiveFeed({ onSelect }: { onSelect: (e: AuditEntry) => void }) {
   const rows = entries.filter((e) => filter === "ALL" || e.decision === filter);
 
   return (
-    <section className="panel flex h-full flex-col">
-      <header className="border-b border-hairline px-5 py-4">
+    <section className="glass rounded-[28px] flex h-full flex-col shadow-sm overflow-hidden">
+      <header className="px-6 py-5">
         <div className="flex items-center gap-2">
-          <h2 className="section-label text-foreground">Live Traffic</h2>
-          <span className="ml-auto text-[11px] text-muted-foreground">3s poll</span>
+          <h2 className="text-[16px] font-medium text-foreground">Latest Operations</h2>
+          <span className="ml-auto text-[12px] text-muted-foreground">Live Updates</span>
         </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-4 flex flex-wrap gap-2">
           {FILTERS.map((f) => (
             <button
               key={f.value}
               onClick={() => setFilter(f.value)}
               className={cn(
-                "rounded-full border px-3 py-1 text-[11px] font-normal transition-colors",
+                "rounded-full border px-3 py-1 text-[12px] font-normal transition-all duration-200 backdrop-blur-sm",
                 filter === f.value
-                  ? "border-accent bg-accent-light text-accent"
-                  : "border-border text-muted-foreground hover:text-foreground",
+                  ? "bg-white/80 border-transparent text-primary shadow-sm"
+                  : "border-border/50 text-muted-foreground hover:bg-white/40 hover:text-foreground",
               )}
             >
               {f.label}
@@ -49,42 +49,63 @@ export function LiveFeed({ onSelect }: { onSelect: (e: AuditEntry) => void }) {
       </header>
 
 
-      <div className="scroll-slim max-h-[560px] flex-1 divide-y divide-border overflow-y-auto">
-        {rows.map((e, i) => (
-          <button
-            key={e.entry_id}
-            onClick={() => onSelect(e)}
-            className={cn(
-              "block w-full px-4 py-3 text-left transition-colors hover:bg-surface-elevated",
-              i === 0 && "animate-slide-in",
-              i > 8 && "opacity-70",
-            )}
-          >
-            <div className="flex items-center gap-3">
-              <span className="mono text-[11px] text-muted-foreground">
-                {fmtTime(e.timestamp)}
-              </span>
-              <span className="mono truncate text-[11px] text-link">{e.agent_id}</span>
-              <span className="ml-auto text-[12px] font-semibold">
-                {e.action_type.replace(/_/g, " ")} {fmtMoney(e.amount)}
-              </span>
-            </div>
-            <div className="mt-2 flex items-center gap-3">
-              {e.risk_score === null ? (
-                <span className="mono text-[11px] text-muted-foreground">
-                  Risk: N/A ({e.gate_failed})
-                </span>
-              ) : (
-                <RiskBar score={e.risk_score} />
+      <div className="scroll-slim max-h-[560px] flex-1 overflow-y-auto px-4 pb-4">
+        <div className="flex flex-col gap-2">
+          {rows.map((e, i) => (
+            <button
+              key={e.entry_id}
+              onClick={() => onSelect(e)}
+              className={cn(
+                "w-full px-4 py-4 text-left transition-all duration-200 rounded-[20px]",
+                "bg-white/30 hover:bg-white/60 hover:shadow-sm border border-white/40",
+                i === 0 && "animate-slide-in",
+                i > 8 && "opacity-70",
               )}
-              <DecisionBadge decision={e.decision} className="ml-auto" />
-            </div>
-          </button>
-        ))}
+            >
+              <div className="flex items-center gap-4">
+                <div className="grid size-10 shrink-0 place-items-center rounded-full bg-gradient-to-br from-primary to-accent text-white shadow-sm">
+                  {e.action_type[0]}
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="truncate text-[14px] font-medium text-foreground">
+                      {(e.action_type || "UNKNOWN_ACTION").replace(/_/g, " ")}
+                    </span>
+                    <span className="text-[14px] font-medium text-primary ml-4">
+                      {fmtMoney(e.amount)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="truncate text-[12px] text-muted-foreground">
+                      {e.agent_id.replace("agent_", "").replace(/_/g, " ")}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground/50">•</span>
+                    <span className="mono text-[11px] text-muted-foreground">
+                      {fmtTime(e.timestamp)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-3 flex items-center justify-between border-t border-white/30 pt-3">
+                {e.risk_score === null ? (
+                  <span className="mono text-[11px] text-muted-foreground">
+                    Risk: N/A ({e.gate_failed})
+                  </span>
+                ) : (
+                  <RiskBar score={e.risk_score} />
+                )}
+                <DecisionBadge decision={e.decision} />
+              </div>
+            </button>
+          ))}
+        </div>
         {rows.length === 0 && (
-          <p className="px-4 py-8 text-center text-sm text-muted-foreground">
-            No traffic matches this filter.
-          </p>
+          <div className="px-4 py-12 text-center">
+            <p className="text-[14px] text-muted-foreground">No operations match this filter.</p>
+          </div>
         )}
       </div>
     </section>
