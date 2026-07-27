@@ -434,7 +434,7 @@ export async function isolateAgent(agentId: string): Promise<AgentStatus[]> {
     body: JSON.stringify({ agent_id: agentId, triggered_by: "admin" }),
   });
   const a = simState.agents.find((x) => x.agent_id === agentId);
-  if (a) a.status = "QUARANTINED";
+  if (a) (a as { status: AgentStatus["status"] }).status = "QUARANTINED";
   return fetchFleet();
 }
 
@@ -444,7 +444,7 @@ export async function releaseAgent(agentId: string): Promise<AgentStatus[]> {
     body: JSON.stringify({ agent_id: agentId, triggered_by: "admin" }),
   });
   const a = simState.agents.find((x) => x.agent_id === agentId);
-  if (a) a.status = "ACTIVE";
+  if (a) (a as { status: AgentStatus["status"] }).status = "ACTIVE";
   return fetchFleet();
 }
 
@@ -453,7 +453,9 @@ export async function fleetKill(): Promise<AgentStatus[]> {
     method: "POST",
     body: JSON.stringify({ triggered_by: "admin" }),
   });
-  simState.agents.forEach((a) => (a.status = "QUARANTINED"));
+  simState.agents.forEach((a) => {
+    (a as { status: AgentStatus["status"] }).status = "QUARANTINED";
+  });
   return fetchFleet();
 }
 
